@@ -70,7 +70,7 @@ function ProductModal({ product, grades, onClose, onSaved }) {
   );
 }
 
-export default function Stock() {
+export default function Stock({ onReorder }) {
   const toast = useToast();
   const [products, setProducts] = useState(null);
   const [grades, setGrades] = useState([]);
@@ -106,7 +106,10 @@ export default function Stock() {
           <div className="page-title">Stock</div>
           <div className="page-sub">Tap + / − to adjust counts</div>
         </div>
-        <button className="btn btn-primary" onClick={() => setEditing(null)}><Icon name="plus" /> Add product</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={onReorder}><Icon name="grip" /> Reorder</button>
+          <button className="btn btn-primary" onClick={() => setEditing(null)}><Icon name="plus" /> Add product</button>
+        </div>
       </div>
       <div className="stats">
         <div className="stat"><b>{totalUnits}</b><span>Units in stock</span></div>

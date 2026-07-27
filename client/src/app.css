@@ -202,6 +202,24 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 .zero{color:var(--ink-3)}
 
 /* ============================================================
+   REORDER
+   ============================================================ */
+.reorder-list{display:flex;flex-direction:column;gap:8px;user-select:none}
+.reorder-row{
+  display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);padding:11px 13px;box-shadow:var(--shadow);transition:box-shadow .12s;
+}
+.reorder-row.dragging{box-shadow:0 8px 24px rgba(18,22,15,.16);border-color:var(--accent);z-index:5;position:relative}
+.reorder-handle{
+  display:grid;place-items:center;color:var(--ink-3);flex-shrink:0;padding:4px;margin:-4px;
+  touch-action:none;cursor:grab;
+}
+.reorder-handle:active{cursor:grabbing;color:var(--accent-ink)}
+.reorder-handle svg{width:20px;height:20px;display:block}
+.reorder-row .row-main{font-weight:700;font-size:14.5px}
+.reorder-row .storage{color:var(--ink-2);font-weight:600}
+
+/* ============================================================
    FORMS / SALES
    ============================================================ */
 .sale-form{padding:16px;margin-bottom:20px}

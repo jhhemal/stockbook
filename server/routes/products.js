@@ -15,7 +15,7 @@ function productOut(p) {
 }
 
 router.get('/', async (req, res) => {
-  const products = await models.Product.findAll({ order: [['model', 'ASC'], ['storage', 'ASC']] });
+  const products = await models.Product.findAll({ order: [['sortOrder', 'ASC'], ['id', 'ASC']] });
   res.json(products.map(productOut));
 });
 
@@ -43,6 +43,17 @@ router.post('/', async (req, res) => {
   const p = await models.Product.create({ model, storage, sortOrder, counts });
   if (movements.length) await models.StockMovement.bulkCreate(movements);
   res.status(201).json(productOut(p));
+});
+
+router.post('/reorder', async (req, res) => {
+  const ids = req.body?.order;
+  if (!Array.isArray(ids) || !ids.length) return res.status(422).json({ detail: 'order must be a non-empty array of product ids' });
+  const products = await models.Product.findAll({ where: { id: ids } });
+  if (products.length !== ids.length) return res.status(404).json({ detail: 'One or more products not found' });
+  const byId = new Map(products.map(p => [String(p.id), p]));
+  await Promise.all(ids.map((id, i) => byId.get(String(id)).update({ sortOrder: i })));
+  const ordered = await models.Product.findAll({ order: [['sortOrder', 'ASC'], ['id', 'ASC']] });
+  res.json(ordered.map(productOut));
 });
 
 router.patch('/:id', async (req, res) => {

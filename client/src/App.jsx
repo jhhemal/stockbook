@@ -5,6 +5,7 @@ import Stock from './views/Stock';
 import Sales from './views/Sales';
 import Report from './views/Report';
 import Settings from './views/Settings';
+import Reorder from './views/Reorder';
 
 const TABS = [
   { key: 'stock', label: 'Stock' },
@@ -83,11 +84,13 @@ export default function App() {
   if (!user) return <Login onLogin={setUser} />;
 
   const views = {
-    stock: <Stock />,
+    stock: <Stock onReorder={() => setView('reorder')} />,
     sales: <Sales />,
     report: <Report />,
     settings: <Settings me={user} />,
+    reorder: <Reorder onBack={() => setView('stock')} />,
   };
+  const activeTab = view === 'reorder' ? 'stock' : view;
 
   return (
     <>
@@ -98,7 +101,7 @@ export default function App() {
             <div className="brand-name">StockBook</div>
           </div>
           {TABS.map(t => (
-            <button key={t.key} className={`nav-btn ${view === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
+            <button key={t.key} className={`nav-btn ${activeTab === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
               <Icon name={t.key} /> {t.label}
             </button>
           ))}
@@ -121,7 +124,7 @@ export default function App() {
       </div>
       <nav className="tabbar">
         {TABS.map(t => (
-          <button key={t.key} className={`tab-btn ${view === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
+          <button key={t.key} className={`tab-btn ${activeTab === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
             <span className="tab-ic"><Icon name={t.key} /></span>{t.label}
           </button>
         ))}
