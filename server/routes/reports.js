@@ -34,6 +34,7 @@ router.get('/stock', async (req, res) => {
       .map(g => [g, (p.counts || {})[String(g.id)] || 0])
       .filter(([, q]) => q > 0);
     if (!nonzero.length && !includeZero) continue;
+    if (lines.length) lines.push(''); // blank line between products
     lines.push(p.displayName);
     if (nonzero.length) {
       for (const [g, q] of nonzero) {
