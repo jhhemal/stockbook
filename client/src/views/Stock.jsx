@@ -58,7 +58,8 @@ function ProductModal({ product, grades, onClose, onSaved }) {
             <label>{g.name} count</label>
             <input type="number" min="0" inputMode="numeric" value={counts[g.id]}
               onChange={e => setCounts(c => ({ ...c, [g.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
-              onFocus={e => e.target.select()} />
+              onFocus={e => { if (Number(e.target.value) === 0) e.target.value = ''; else e.target.select(); }}
+              onBlur={e => { if (e.target.value === '') e.target.value = String(counts[g.id] || 0); }} />
           </div>
         ))}
       </div>
@@ -109,8 +110,8 @@ export default function Stock({ onReorder }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost" onClick={onReorder}><Icon name="grip" /> Reorder</button>
-          <button className={`btn btn-primary ${getStickyAdd() ? 'add-fab' : ''}`} onClick={() => setEditing(null)} aria-label="Add product">
-            <Icon name="plus" /> <span className="add-fab-label">Add product</span>
+          <button className={`btn btn-primary ${getStickyAdd() ? 'add-fab' : ''}`} onClick={() => setEditing(null)}>
+            <Icon name="plusCircle" /> Add product
           </button>
         </div>
       </div>

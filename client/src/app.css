@@ -109,10 +109,10 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 
   .add-fab{
     position:fixed;right:18px;bottom:calc(90px + var(--sab));z-index:45;
-    width:56px;height:56px;padding:0;border-radius:50%;gap:0;
+    border-radius:999px;padding:15px 22px;
     box-shadow:0 8px 24px rgba(11,122,92,.4),0 2px 8px rgba(18,22,15,.15);
   }
-  .btn.add-fab svg{width:24px;height:24px}
+  .btn.add-fab svg{width:20px;height:20px}
   .add-fab .add-fab-label{display:none}
 }
 
