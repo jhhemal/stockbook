@@ -8,6 +8,16 @@ export function setToken(t) {
   try { t ? localStorage.setItem(TOKEN_KEY, t) : localStorage.removeItem(TOKEN_KEY); } catch {}
 }
 
+/* device preference: keep the "Add product" button pinned in view on mobile */
+const STICKY_ADD_KEY = 'stockbook_sticky_add';
+
+export function getStickyAdd() {
+  try { return localStorage.getItem(STICKY_ADD_KEY) !== '0'; } catch { return true; }
+}
+export function setStickyAdd(on) {
+  try { localStorage.setItem(STICKY_ADD_KEY, on ? '1' : '0'); } catch {}
+}
+
 async function request(method, path, body) {
   const headers = { 'Content-Type': 'application/json' };
   const token = getToken();

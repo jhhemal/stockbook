@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api';
+import { api, getStickyAdd, setStickyAdd } from '../api';
 import { Icon, Modal, gradeClass, gradeClassByName, useToast } from '../ui';
 
 function GradeModal({ grade, onClose, onSaved }) {
@@ -102,6 +102,13 @@ export default function Settings({ me }) {
   const [movements, setMovements] = useState([]);
   const [gradeModal, setGradeModal] = useState(undefined);
   const [userModal, setUserModal] = useState(undefined);
+  const [stickyAdd, setStickyAddState] = useState(getStickyAdd());
+
+  const toggleStickyAdd = () => {
+    const next = !stickyAdd;
+    setStickyAddState(next);
+    setStickyAdd(next);
+  };
 
   const load = async () => {
     try {
@@ -131,6 +138,21 @@ export default function Settings({ me }) {
         <div>
           <div className="page-title">Settings</div>
           <div className="page-sub">Signed in as <b>{me.username}</b> ({me.role})</div>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="side-label" style={{ marginBottom: 10 }}>Preferences</div>
+        <div className="card" style={{ padding: 15 }}>
+          <div className="toggle-row" style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
+            <div>
+              Sticky "Add product" button
+              <div className="row-sub">Keeps it in view on mobile so you don't have to scroll to the top</div>
+            </div>
+            <span className="switch">
+              <input type="checkbox" checked={stickyAdd} onChange={toggleStickyAdd} /><i></i>
+            </span>
+          </div>
         </div>
       </div>
 

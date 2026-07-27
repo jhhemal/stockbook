@@ -106,6 +106,11 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
   .tab-btn.active{color:var(--accent-ink)}
   .tab-btn.active .tab-ic{background:var(--accent-soft)}
   .tab-ic{padding:3px 14px;border-radius:999px;display:grid;place-items:center}
+
+  .add-fab{
+    position:fixed;right:16px;bottom:calc(84px + var(--sab));z-index:45;
+    box-shadow:0 6px 20px rgba(18,22,15,.25);
+  }
 }
 
 /* ============================================================

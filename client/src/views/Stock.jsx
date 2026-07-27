@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../api';
+import { api, getStickyAdd } from '../api';
 import { Icon, Modal, gradeClass, useToast } from '../ui';
 
 function ProductModal({ product, grades, onClose, onSaved }) {
@@ -57,7 +57,8 @@ function ProductModal({ product, grades, onClose, onSaved }) {
           <div className="field" key={g.id}>
             <label>{g.name} count</label>
             <input type="number" min="0" inputMode="numeric" value={counts[g.id]}
-              onChange={e => setCounts(c => ({ ...c, [g.id]: Math.max(0, parseInt(e.target.value) || 0) }))} />
+              onChange={e => setCounts(c => ({ ...c, [g.id]: Math.max(0, parseInt(e.target.value) || 0) }))}
+              onFocus={e => e.target.select()} />
           </div>
         ))}
       </div>
@@ -108,7 +109,9 @@ export default function Stock({ onReorder }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost" onClick={onReorder}><Icon name="grip" /> Reorder</button>
-          <button className="btn btn-primary" onClick={() => setEditing(null)}><Icon name="plus" /> Add product</button>
+          <button className={`btn btn-primary ${getStickyAdd() ? 'add-fab' : ''}`} onClick={() => setEditing(null)}>
+            <Icon name="plus" /> Add product
+          </button>
         </div>
       </div>
       <div className="stats">

@@ -104,7 +104,8 @@ export default function Sales() {
           <div className="field">
             <label>Quantity</label>
             <input type="number" min="1" max={avail || undefined} inputMode="numeric" value={sel.qty}
-              onChange={e => setSel(s => ({ ...s, qty: Math.max(1, parseInt(e.target.value) || 1) }))} />
+              onChange={e => setSel(s => ({ ...s, qty: Math.max(1, parseInt(e.target.value) || 1) }))}
+              onFocus={e => e.target.select()} />
           </div>
           <div className="field" style={{ display: 'flex', alignItems: 'flex-end' }}>
             <button className="btn btn-primary btn-block" disabled={busy} onClick={record}>Record sale</button>
