@@ -1,11 +1,11 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('../models');
+const { models } = require('../db');
 
 const SECRET = () => process.env.JWT_SECRET || 'change-me-in-production';
 
 function signToken(user) {
   return jwt.sign(
-    { sub: user._id.toString(), username: user.username, role: user.role },
+    { sub: String(user.id), username: user.username, role: user.role },
     SECRET(),
     { expiresIn: '72h' }
   );
@@ -17,7 +17,7 @@ async function requireAuth(req, res, next) {
   if (!token) return res.status(401).json({ detail: 'Not authenticated' });
   try {
     const payload = jwt.verify(token, SECRET());
-    const user = await User.findById(payload.sub);
+    const user = await models.User.findByPk(payload.sub);
     if (!user || !user.isActive) {
       return res.status(401).json({ detail: 'User not found or disabled' });
     }

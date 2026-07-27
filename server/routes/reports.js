@@ -10,14 +10,14 @@
    GET /api/reports/movements             audit trail
 */
 const express = require('express');
-const { Product, Grade, Sale, StockMovement } = require('../models');
+const { models, Op } = require('../db');
 const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
 
 router.get('/stock', async (req, res) => {
-  const allGrades = await Grade.find().sort({ sortOrder: 1, _id: 1 });
+  const allGrades = await models.Grade.findAll({ order: [['sortOrder', 'ASC'], ['id', 'ASC']] });
   let selected = allGrades;
   if (req.query.grades) {
     const wanted = new Set(req.query.grades.split(',').map(s => s.trim().toLowerCase()).filter(Boolean));
@@ -26,12 +26,12 @@ router.get('/stock', async (req, res) => {
   }
   const includeZero = req.query.include_zero === 'true';
 
-  const products = await Product.find().sort({ sortOrder: 1, _id: 1 });
+  const products = await models.Product.findAll({ order: [['sortOrder', 'ASC'], ['id', 'ASC']] });
   const lines = [];
   let total = 0;
   for (const p of products) {
     const nonzero = selected
-      .map(g => [g, p.counts.get(g._id.toString()) || 0])
+      .map(g => [g, (p.counts || {})[String(g.id)] || 0])
       .filter(([, q]) => q > 0);
     if (!nonzero.length && !includeZero) continue;
     lines.push(p.displayName);
@@ -59,11 +59,11 @@ router.get('/sold', async (req, res) => {
   const start = new Date(target); start.setHours(0, 0, 0, 0);
   const end = new Date(start.getTime() + 864e5);
 
-  const filter = { createdAt: { $gte: start, $lt: end } };
+  const where = { createdAt: { [Op.gte]: start, [Op.lt]: end } };
   if (req.query.grades) {
-    filter.gradeName = { $in: req.query.grades.split(',').map(s => s.trim()).filter(Boolean) };
+    where.gradeName = { [Op.in]: req.query.grades.split(',').map(s => s.trim()).filter(Boolean) };
   }
-  const sales = await Sale.find(filter);
+  const sales = await models.Sale.findAll({ where });
 
   // aggregate: productName -> gradeName -> qty
   const agg = {};
@@ -90,9 +90,9 @@ router.get('/sold', async (req, res) => {
 
 router.get('/movements', async (req, res) => {
   const limit = Math.min(500, Math.max(1, parseInt(req.query.limit) || 50));
-  const rows = await StockMovement.find().sort({ createdAt: -1 }).limit(limit);
+  const rows = await models.StockMovement.findAll({ order: [['createdAt', 'DESC']], limit });
   res.json(rows.map(m => ({
-    id: m._id, productName: m.productName, gradeName: m.gradeName,
+    id: String(m.id), productName: m.productName, gradeName: m.gradeName,
     change: m.change, reason: m.reason, username: m.username, createdAt: m.createdAt,
   })));
 });

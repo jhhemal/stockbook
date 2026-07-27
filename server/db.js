@@ -1,10 +1,83 @@
-/* Mongoose connection with caching for serverless (Vercel re-uses warm
-   containers; a cached connection avoids reconnecting on every request). */
-const mongoose = require('mongoose');
+/* Database layer — Sequelize with a dialect switch:
+ *   DATABASE_URL set (postgres://...)  -> Postgres  (production / Vercel + Neon)
+ *   DATABASE_URL not set               -> SQLite    (local file, zero setup)
+ *
+ * The connection + models are cached in `global` so warm serverless
+ * invocations on Vercel reuse them instead of reconnecting.
+ */
+const { Sequelize, DataTypes, Op } = require('sequelize');
 const bcrypt = require('bcryptjs');
 
-let cached = global._mongoose;
-if (!cached) cached = global._mongoose = { conn: null, promise: null, seeded: false };
+let cached = global._db;
+if (!cached) cached = global._db = { ready: null, sequelize: null, models: {} };
+
+function createSequelize() {
+  const url = process.env.DATABASE_URL;
+  if (url) {
+    const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
+    return new Sequelize(url, {
+      dialect: 'postgres',
+      logging: false,
+      pool: { max: 2, min: 0, idle: 10000 }, // small pool for serverless
+      dialectOptions: isLocal ? {} : { ssl: { require: true, rejectUnauthorized: false } },
+    });
+  }
+  if (process.env.VERCEL) {
+    throw new Error(
+      "DATABASE_URL is not set. On Vercel, add a Postgres database (Storage tab → Create Database → Neon) — it sets DATABASE_URL automatically."
+    );
+  }
+  return new Sequelize({
+    dialect: 'sqlite',
+    storage: process.env.SQLITE_PATH || './stockbook.db',
+    logging: false,
+  });
+}
+
+function defineModels(sequelize) {
+  const User = sequelize.define('User', {
+    username: { type: DataTypes.STRING(50), allowNull: false, unique: true },
+    passwordHash: { type: DataTypes.STRING, allowNull: false },
+    role: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'staff' }, // admin | staff
+    isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+  });
+
+  const Grade = sequelize.define('Grade', {
+    name: { type: DataTypes.STRING(30), allowNull: false, unique: true },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  }, { timestamps: false });
+
+  const Product = sequelize.define('Product', {
+    model: { type: DataTypes.STRING(80), allowNull: false },
+    storage: { type: DataTypes.STRING(30), allowNull: false, defaultValue: '' },
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+    // { "<gradeId>": qty } — per-grade quantities (JSON works on sqlite & postgres)
+    counts: { type: DataTypes.JSON, allowNull: false, defaultValue: {} },
+  }, {
+    indexes: [{ unique: true, fields: ['model', 'storage'] }],
+  });
+  Object.defineProperty(Product.prototype, 'displayName', {
+    get() { return `${this.model} ${this.storage}`.trim(); },
+  });
+
+  const Sale = sequelize.define('Sale', {
+    productId: { type: DataTypes.INTEGER, allowNull: true },
+    productName: { type: DataTypes.STRING(120), allowNull: false }, // snapshot, survives deletes
+    gradeName: { type: DataTypes.STRING(30), allowNull: false },
+    qty: { type: DataTypes.INTEGER, allowNull: false },
+    username: { type: DataTypes.STRING(50), allowNull: false, defaultValue: '' },
+  }, { indexes: [{ fields: ['createdAt'] }] });
+
+  const StockMovement = sequelize.define('StockMovement', {
+    productName: { type: DataTypes.STRING(120), allowNull: false },
+    gradeName: { type: DataTypes.STRING(30), allowNull: false },
+    change: { type: DataTypes.INTEGER, allowNull: false },              // +5 / -2
+    reason: { type: DataTypes.STRING(30), allowNull: false },           // adjust | sale | sale_reverted | initial
+    username: { type: DataTypes.STRING(50), allowNull: false, defaultValue: '' },
+  }, { indexes: [{ fields: ['createdAt'] }] });
+
+  return { User, Grade, Product, Sale, StockMovement };
+}
 
 const DEFAULT_GRADES = ['A', 'A-', 'AB', 'B', 'Z', 'Genuine'];
 
@@ -30,10 +103,10 @@ const INITIAL_STOCK = [
   ['17 PM', '256', { A: 1 }],
 ];
 
-async function seed() {
-  const { User, Grade, Product, StockMovement } = require('./models');
+async function seed(models) {
+  const { User, Grade, Product, StockMovement } = models;
 
-  if ((await User.countDocuments()) === 0) {
+  if ((await User.count()) === 0) {
     await User.create({
       username: process.env.ADMIN_USERNAME || 'admin',
       passwordHash: await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10),
@@ -41,45 +114,43 @@ async function seed() {
     });
   }
 
-  if ((await Grade.countDocuments()) === 0) {
-    await Grade.insertMany(DEFAULT_GRADES.map((name, i) => ({ name, sortOrder: i })));
+  if ((await Grade.count()) === 0) {
+    await Grade.bulkCreate(DEFAULT_GRADES.map((name, i) => ({ name, sortOrder: i })));
   }
 
-  if ((await Product.countDocuments()) === 0) {
-    const grades = await Grade.find();
+  if ((await Product.count()) === 0) {
+    const grades = await Grade.findAll();
     const byName = Object.fromEntries(grades.map(g => [g.name, g]));
     for (let i = 0; i < INITIAL_STOCK.length; i++) {
-      const [model, storage, counts] = INITIAL_STOCK[i];
-      const countMap = {};
+      const [model, storage, gradeCounts] = INITIAL_STOCK[i];
+      const counts = {};
       const movements = [];
-      for (const [gname, qty] of Object.entries(counts)) {
+      const displayName = `${model} ${storage}`.trim();
+      for (const [gname, qty] of Object.entries(gradeCounts)) {
         if (byName[gname] && qty > 0) {
-          countMap[byName[gname]._id.toString()] = qty;
-          movements.push({
-            productName: `${model} ${storage}`.trim(),
-            gradeName: gname, change: qty, reason: 'initial', username: 'system',
-          });
+          counts[String(byName[gname].id)] = qty;
+          movements.push({ productName: displayName, gradeName: gname, change: qty, reason: 'initial', username: 'system' });
         }
       }
-      await Product.create({ model, storage, sortOrder: i, counts: countMap });
-      if (movements.length) await StockMovement.insertMany(movements);
+      await Product.create({ model, storage, sortOrder: i, counts });
+      if (movements.length) await StockMovement.bulkCreate(movements);
     }
   }
 }
 
 async function connectDB() {
-  if (cached.conn) return cached.conn;
-  if (!cached.promise) {
-    const uri = process.env.MONGODB_URI;
-    if (!uri) throw new Error('MONGODB_URI is not set');
-    cached.promise = mongoose.connect(uri, { bufferCommands: false });
+  if (!cached.ready) {
+    cached.ready = (async () => {
+      const sequelize = createSequelize();
+      const models = defineModels(sequelize);
+      await sequelize.authenticate();
+      await sequelize.sync(); // creates tables if missing
+      await seed(models);
+      cached.sequelize = sequelize;
+      Object.assign(cached.models, models);
+    })();
   }
-  cached.conn = await cached.promise;
-  if (!cached.seeded) {
-    await seed();
-    cached.seeded = true;
-  }
-  return cached.conn;
+  await cached.ready;
 }
 
-module.exports = { connectDB };
+module.exports = { connectDB, models: cached.models, Op };
