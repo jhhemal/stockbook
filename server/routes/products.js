@@ -15,7 +15,7 @@ function productOut(p) {
 }
 
 router.get('/', async (req, res) => {
-  const products = await models.Product.findAll({ order: [['sortOrder', 'ASC'], ['id', 'ASC']] });
+  const products = await models.Product.findAll({ order: [['model', 'ASC'], ['storage', 'ASC']] });
   res.json(products.map(productOut));
 });
 

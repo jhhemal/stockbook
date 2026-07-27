@@ -26,7 +26,7 @@ router.get('/stock', async (req, res) => {
   }
   const includeZero = req.query.include_zero === 'true';
 
-  const products = await models.Product.findAll({ order: [['sortOrder', 'ASC'], ['id', 'ASC']] });
+  const products = await models.Product.findAll({ order: [['model', 'ASC'], ['storage', 'ASC']] });
   const lines = [];
   let total = 0;
   for (const p of products) {
