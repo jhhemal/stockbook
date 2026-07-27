@@ -15,8 +15,13 @@ app.use('/api', async (req, res, next) => {
     await connectDB();
     next();
   } catch (err) {
-    console.error('DB connection failed:', err.message);
-    res.status(500).json({ detail: 'Database connection failed — check MONGODB_URI' });
+    console.error('DB connection failed:', err);
+    // Surface the real reason so misconfiguration is easy to diagnose
+    res.status(500).json({
+      detail: `Database connection failed: ${err.message}. ` +
+        `Check that DATABASE_URL is set to your Supabase Transaction pooler string ` +
+        `(Supabase Dashboard → Connect → Transaction pooler, port 6543) with the real password filled in.`,
+    });
   }
 });
 

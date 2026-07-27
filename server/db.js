@@ -24,7 +24,7 @@ function createSequelize() {
   }
   if (process.env.VERCEL) {
     throw new Error(
-      "DATABASE_URL is not set. On Vercel, add a Postgres database (Storage tab → Create Database → Neon) — it sets DATABASE_URL automatically."
+      "DATABASE_URL is not set. Add it in Vercel → Settings → Environment Variables using your Supabase Transaction pooler connection string, then redeploy."
     );
   }
   return new Sequelize({
