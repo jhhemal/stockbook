@@ -109,8 +109,8 @@ export default function Stock({ onReorder }) {
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost" onClick={onReorder}><Icon name="grip" /> Reorder</button>
-          <button className={`btn btn-primary ${getStickyAdd() ? 'add-fab' : ''}`} onClick={() => setEditing(null)}>
-            <Icon name="plus" /> Add product
+          <button className={`btn btn-primary ${getStickyAdd() ? 'add-fab' : ''}`} onClick={() => setEditing(null)} aria-label="Add product">
+            <Icon name="plus" /> <span className="add-fab-label">Add product</span>
           </button>
         </div>
       </div>

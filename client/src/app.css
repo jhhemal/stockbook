@@ -108,9 +108,12 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
   .tab-ic{padding:3px 14px;border-radius:999px;display:grid;place-items:center}
 
   .add-fab{
-    position:fixed;right:16px;bottom:calc(84px + var(--sab));z-index:45;
+    position:fixed;right:16px;top:calc(66px + var(--sat));z-index:35;
+    width:48px;height:48px;padding:0;border-radius:50%;gap:0;
     box-shadow:0 6px 20px rgba(18,22,15,.25);
   }
+  .btn.add-fab svg{width:21px;height:21px}
+  .add-fab .add-fab-label{display:none}
 }
 
 /* ============================================================
