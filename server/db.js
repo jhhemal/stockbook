@@ -15,8 +15,12 @@ function createSequelize() {
   const url = process.env.DATABASE_URL;
   if (url) {
     const isLocal = url.includes('localhost') || url.includes('127.0.0.1');
+    // Explicit require so Vercel's bundler includes pg in the serverless
+    // function (Sequelize loads it dynamically, which the bundler can't see).
+    const pg = require('pg');
     return new Sequelize(url, {
       dialect: 'postgres',
+      dialectModule: pg,
       logging: false,
       pool: { max: 2, min: 0, idle: 10000 }, // small pool for serverless
       dialectOptions: isLocal ? {} : { ssl: { require: true, rejectUnauthorized: false } },
