@@ -78,6 +78,7 @@ export default function Stock({ onReorder }) {
   const [grades, setGrades] = useState([]);
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);
+  const [view, setView] = useState('cards'); // cards | table
   const [editing, setEditing] = useState(undefined); // undefined=closed, null=new, obj=edit
 
   const load = async () => {
@@ -124,49 +125,88 @@ export default function Stock({ onReorder }) {
         <Icon name="search" />
         <input placeholder="Search model…" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
-      <div className="stock-list">
-        {items.length ? items.map(p => (
-          <div className="product" key={p.id}>
-            <div className="product-top">
-              <div className="product-name">
-                {p.model}{p.storage && <span className="storage">{p.storage}</span>}
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div className="product-total">{p.total} unit{p.total === 1 ? '' : 's'}</div>
-                <button className="edit-dot" aria-label="Edit" onClick={() => setEditing(p)}><Icon name="dots" /></button>
-              </div>
-            </div>
-            <div className="grade-rows">
-              {grades.map(g => {
-                const c = p.counts[g.id] || 0;
-                if (c === 0 && !showAll) return null;
-                return (
-                  <div className="grade-row" key={g.id}>
-                    <span className="grade-label"><span className={`badge ${gradeClass(grades, g.id)}`}>{g.name}</span></span>
-                    <span className={`grade-count ${c === 0 ? 'zero' : ''}`}>{c}</span>
-                    <div className="stepper">
-                      <button className="step-btn" aria-label="Decrease" onClick={() => adjust(p.id, g.id, -1)}>−</button>
-                      <button className="step-btn" aria-label="Increase" onClick={() => adjust(p.id, g.id, 1)}>+</button>
-                    </div>
-                  </div>
-                );
-              })}
-              {p.total === 0 && !showAll && <div className="row-sub">Out of stock — open edit to add units</div>}
-            </div>
+      <div className="seg" style={{ marginBottom: 14 }}>
+        <button type="button" className={`seg-btn ${view === 'cards' ? 'selected' : ''}`} onClick={() => setView('cards')}>Cards</button>
+        <button type="button" className={`seg-btn ${view === 'table' ? 'selected' : ''}`} onClick={() => setView('table')}>Table</button>
+      </div>
+      {view === 'table' ? (
+        items.length ? (
+          <div className="table-wrap">
+            <table className="stock-table">
+              <thead>
+                <tr>
+                  <th className="stock-table-sticky">Model</th>
+                  {grades.map(g => <th key={g.id}>{g.name}</th>)}
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map(p => (
+                  <tr key={p.id} onClick={() => setEditing(p)}>
+                    <td className="stock-table-sticky">{p.displayName}</td>
+                    {grades.map(g => {
+                      const c = p.counts[g.id] || 0;
+                      return <td key={g.id} className={c === 0 ? 'zero' : ''}>{c}</td>;
+                    })}
+                    <td className="stock-table-total">{p.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )) : (
+        ) : (
           <div className="empty">
             <b>No products found</b>
             <p>{q ? 'Try a different search.' : 'Add your first product to get started.'}</p>
           </div>
-        )}
-      </div>
-      <div className="toggle-row" style={{ maxWidth: 340 }}>
-        <span>Show empty grades on cards</span>
-        <span className="switch">
-          <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} /><i></i>
-        </span>
-      </div>
+        )
+      ) : (
+        <div className="stock-list">
+          {items.length ? items.map(p => (
+            <div className="product" key={p.id}>
+              <div className="product-top">
+                <div className="product-name">
+                  {p.model}{p.storage && <span className="storage">{p.storage}</span>}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div className="product-total">{p.total} unit{p.total === 1 ? '' : 's'}</div>
+                  <button className="edit-dot" aria-label="Edit" onClick={() => setEditing(p)}><Icon name="dots" /></button>
+                </div>
+              </div>
+              <div className="grade-rows">
+                {grades.map(g => {
+                  const c = p.counts[g.id] || 0;
+                  if (c === 0 && !showAll) return null;
+                  return (
+                    <div className="grade-row" key={g.id}>
+                      <span className="grade-label"><span className={`badge ${gradeClass(grades, g.id)}`}>{g.name}</span></span>
+                      <span className={`grade-count ${c === 0 ? 'zero' : ''}`}>{c}</span>
+                      <div className="stepper">
+                        <button className="step-btn" aria-label="Decrease" onClick={() => adjust(p.id, g.id, -1)}>−</button>
+                        <button className="step-btn" aria-label="Increase" onClick={() => adjust(p.id, g.id, 1)}>+</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {p.total === 0 && !showAll && <div className="row-sub">Out of stock — open edit to add units</div>}
+              </div>
+            </div>
+          )) : (
+            <div className="empty">
+              <b>No products found</b>
+              <p>{q ? 'Try a different search.' : 'Add your first product to get started.'}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {view === 'cards' && (
+        <div className="toggle-row" style={{ maxWidth: 340 }}>
+          <span>Show empty grades on cards</span>
+          <span className="switch">
+            <input type="checkbox" checked={showAll} onChange={e => setShowAll(e.target.checked)} /><i></i>
+          </span>
+        </div>
+      )}
       {editing !== undefined && (
         <ProductModal product={editing} grades={grades}
           onClose={() => setEditing(undefined)}
