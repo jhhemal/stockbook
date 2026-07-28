@@ -226,18 +226,19 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 .zero{color:var(--ink-3)}
 
 .table-wrap{
-  overflow:auto;border:1px solid var(--line);border-radius:var(--radius);
+  overflow:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--radius);
   background:var(--surface);box-shadow:var(--shadow);
 }
 .stock-table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
 .stock-table th,.stock-table td{
-  padding:13px 20px;text-align:right;border-bottom:1px solid var(--line);
-  border-right:1px solid var(--line);min-width:64px;
+  padding:12px 18px;text-align:right;border-bottom:1px solid var(--line);
+  border-right:1px solid var(--line);min-width:60px;
 }
 .stock-table th:last-child,.stock-table td:last-child{border-right:none}
 .stock-table th{
-  position:sticky;top:0;z-index:2;background:var(--bg);font-size:11px;font-weight:800;
-  text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);
+  position:sticky;top:0;z-index:2;background:var(--accent-soft);font-size:11px;font-weight:800;
+  text-transform:uppercase;letter-spacing:.05em;color:var(--accent-ink);
+  border-bottom:1px solid var(--accent);
 }
 .stock-table tbody tr{cursor:pointer}
 .stock-table tbody tr:nth-child(even){background:var(--bg)}
@@ -248,10 +249,17 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 .stock-table td.zero{color:var(--ink-3)}
 .stock-table-sticky{
   position:sticky;left:0;z-index:1;background:var(--surface);text-align:left;
-  font-weight:700;min-width:150px;box-shadow:1px 0 0 var(--line);
+  font-weight:600;color:var(--ink);min-width:140px;box-shadow:1px 0 0 var(--line);
 }
-.stock-table th.stock-table-sticky{z-index:3}
-.stock-table-total{font-weight:800;font-variant-numeric:tabular-nums;border-left:2px solid var(--line)}
+.stock-table th.stock-table-sticky{z-index:3;color:var(--accent-ink)}
+.stock-table-total{font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums;border-left:2px solid var(--line)}
+
+@media (max-width:768px){
+  .stock-table{font-size:12.5px}
+  .stock-table th,.stock-table td{padding:9px 12px;min-width:44px}
+  .stock-table th{font-size:9.5px}
+  .stock-table-sticky{min-width:104px}
+}
 
 /* ============================================================
    REORDER
