@@ -1,21 +1,27 @@
 import { useState } from 'react';
 import { api } from '../api';
-import { Icon, Modal, useToast } from '../ui';
+import { Icon, Modal, Select, useToast } from '../ui';
 import { parseOrderText, matchProduct } from '../orderParse';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const NEW_PRODUCT = '__new';
 
 let lineKey = 0;
-const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: '', newStorage: '', batteryMin: '', qty: 1 });
+const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: '', newStorage: '', qty: 1 });
 
-/* Lines used to carry their own grades; orders in practice use the same
- * grade set for everything, so pick it up as the order-level default. */
+const BATTERY_OPTIONS = [{ value: '', label: 'Any' }, ...[80, 85, 90, 95].map(b => ({ value: b, label: `${b}%+` }))];
+
+/* Lines used to carry their own grades/battery; orders in practice use the
+ * same values for everything, so pick them up as order-level defaults. */
 function commonGrades(orderLines) {
   const first = orderLines[0]?.grades || [];
   const key = [...first].sort().join(',');
   const same = orderLines.every(l => [...(l.grades || [])].sort().join(',') === key);
   return same ? first : [];
+}
+function commonBatteryMin(orderLines) {
+  const first = orderLines[0]?.batteryMin || '';
+  return orderLines.every(l => (l.batteryMin || '') === first) ? first : '';
 }
 
 export default function OrderModal({ order, me, partners, products, grades, onClose, onSaved, onProductsChanged }) {
@@ -25,6 +31,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   const [partnerId, setPartnerId] = useState(order?.partnerId || partners[0]?.id || '');
   const [isRush, setIsRush] = useState(order?.isRush || false);
   const [gradeNames, setGradeNames] = useState(() => (order ? commonGrades(order.lines) : []));
+  const [batteryMin, setBatteryMin] = useState(() => (order ? commonBatteryMin(order.lines) : ''));
   const [shipMode, setShipMode] = useState(order?.shipByType || 'none'); // none | date | day
   const [shipDate, setShipDate] = useState(order?.shipByType === 'date' ? order.shipByValue : '');
   const [shipDay, setShipDay] = useState(order?.shipByType === 'day' ? order.shipByValue : 'Friday');
@@ -32,7 +39,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     order
       ? order.lines.map(l => ({
           key: ++lineKey, id: l.id, productId: l.productId || '', productName: l.productName,
-          newModel: '', newStorage: '', batteryMin: l.batteryMin || '', qty: l.qtyOrdered,
+          newModel: '', newStorage: '', qty: l.qtyOrdered,
         }))
       : [blankLine()]);
   const [removedIds, setRemovedIds] = useState([]);
@@ -103,7 +110,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           lines: [],
         };
         for (const l of lines) {
-          body.lines.push({ product_id: await resolveProduct(l), grades: gradeNames, battery_min: l.batteryMin || null, qty: l.qty });
+          body.lines.push({ product_id: await resolveProduct(l), grades: gradeNames, battery_min: batteryMin || null, qty: l.qty });
         }
         await api.post('/api/orders', body);
         toast('Order created');
@@ -116,10 +123,10 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
         for (const l of lines) {
           if (l.id) {
             await api.patch(`/api/orders/${order.id}/lines/${l.id}`,
-              { grades: gradeNames, battery_min: l.batteryMin || null, qty_ordered: l.qty });
+              { grades: gradeNames, battery_min: batteryMin || null, qty_ordered: l.qty });
           } else {
             const updated = await api.post(`/api/orders/${order.id}/lines`,
-              { product_id: await resolveProduct(l), grades: gradeNames, battery_min: l.batteryMin || null, qty: l.qty });
+              { product_id: await resolveProduct(l), grades: gradeNames, battery_min: batteryMin || null, qty: l.qty });
             const created = updated.lines[updated.lines.length - 1];
             if (created) setLine(l.key, { id: created.id, productName: created.productName });
           }
@@ -172,11 +179,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
         </div>
         <div className="field">
           <label>Partner</label>
-          <div className="select-wrap">
-            <select value={partnerId} onChange={e => setPartnerId(e.target.value)}>
-              {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
+          <Select value={partnerId} onChange={setPartnerId} options={partners.map(p => ({ value: p.id, label: p.name }))} />
         </div>
         <div className="field full">
           <label>Grade</label>
@@ -185,6 +188,16 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
               <button key={g.id} type="button" className={`seg-btn ${gradeNames.includes(g.name) ? 'selected' : ''}`}
                 aria-pressed={gradeNames.includes(g.name)}
                 onClick={() => toggleGrade(g.name)}>{g.name}</button>
+            ))}
+          </div>
+        </div>
+        <div className="field full">
+          <label>Battery</label>
+          <div className="seg">
+            {BATTERY_OPTIONS.map(b => (
+              <button key={b.value || 'any'} type="button" className={`seg-btn ${batteryMin === b.value ? 'selected' : ''}`}
+                aria-pressed={batteryMin === b.value}
+                onClick={() => setBatteryMin(b.value)}>{b.label}</button>
             ))}
           </div>
         </div>
@@ -210,11 +223,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
             <input type="date" value={shipDate} onChange={e => setShipDate(e.target.value)} />
           )}
           {shipMode === 'day' && (
-            <div className="select-wrap">
-              <select value={shipDay} onChange={e => setShipDay(e.target.value)}>
-                {WEEKDAYS.map(d => <option key={d} value={d}>{d}</option>)}
-              </select>
-            </div>
+            <Select value={shipDay} onChange={setShipDay} options={WEEKDAYS.map(d => ({ value: d, label: d }))} />
           )}
         </div>
       </div>
@@ -226,13 +235,9 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
             {line.id ? (
               <div className="line-fixed-name">{line.productName}</div>
             ) : (
-              <div className="select-wrap" style={{ flex: 1 }}>
-                <select value={line.productId} onChange={e => setLine(line.key, { productId: e.target.value })}>
-                  <option value="">Select product…</option>
-                  {products.map(p => <option key={p.id} value={p.id}>{p.displayName}</option>)}
-                  <option value={NEW_PRODUCT}>+ New product…</option>
-                </select>
-              </div>
+              <Select value={line.productId} onChange={v => setLine(line.key, { productId: v })}
+                placeholder="Select product…"
+                options={[...products.map(p => ({ value: p.id, label: p.displayName })), { value: NEW_PRODUCT, label: '+ New product…' }]} />
             )}
             <input className="line-qty" type="number" min="1" inputMode="numeric" value={line.qty}
               onChange={e => setLine(line.key, { qty: Math.max(1, parseInt(e.target.value) || 1) })}
@@ -245,15 +250,6 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
               <input value={line.newStorage} onChange={e => setLine(line.key, { newStorage: e.target.value })} placeholder="Any (edit later)" />
             </div>
           )}
-          <div className="line-editor-bottom">
-            <div className="seg battery-seg">
-              {['', 80, 85, 90, 95].map(b => (
-                <button key={b || 'any'} type="button" className={`seg-btn seg-sm ${String(line.batteryMin) === String(b) ? 'selected' : ''}`}
-                  aria-pressed={String(line.batteryMin) === String(b)}
-                  onClick={() => setLine(line.key, { batteryMin: b })}>{b ? `${b}%+` : 'Any'}</button>
-              ))}
-            </div>
-          </div>
         </div>
       ))}
       <button className="btn btn-ghost btn-sm" type="button" onClick={() => setLines(ls => [...ls, blankLine()])}>

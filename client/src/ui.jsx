@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 /* ---------- icons ---------- */
 const paths = {
@@ -41,6 +42,69 @@ export function Icon({ name, size }) {
       style={size ? { width: size, height: size } : undefined}
       dangerouslySetInnerHTML={{ __html: paths[name] || '' }}
     />
+  );
+}
+
+/* ---------- custom select (native <select> popups can't be themed — this
+ * fully-styled dropdown replaces them) ---------- */
+export function Select({ value, onChange, options, placeholder = 'Select…' }) {
+  const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+
+  const openMenu = () => {
+    const r = btnRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - r.bottom;
+    const spaceAbove = r.top;
+    const openUp = spaceBelow < 200 && spaceAbove > spaceBelow;
+    const maxHeight = Math.max(120, (openUp ? spaceAbove : spaceBelow) - 16);
+    setPos(openUp
+      ? { bottom: window.innerHeight - r.top + 4, left: r.left, width: r.width, maxHeight }
+      : { top: r.bottom + 4, left: r.left, width: r.width, maxHeight });
+    setOpen(true);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = e => {
+      if (btnRef.current?.contains(e.target) || menuRef.current?.contains(e.target)) return;
+      setOpen(false);
+    };
+    const close = () => setOpen(false);
+    const onKey = e => { if (e.key === 'Escape') close(); };
+    document.addEventListener('mousedown', onDown);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [open]);
+
+  const current = options.find(o => String(o.value) === String(value));
+
+  return (
+    <div className="csel">
+      <button type="button" ref={btnRef} className="csel-trigger" onClick={() => (open ? setOpen(false) : openMenu())}>
+        <span className={current ? '' : 'csel-placeholder'}>{current ? current.label : placeholder}</span>
+      </button>
+      {open && pos && createPortal(
+        <div className="csel-menu" ref={menuRef} style={pos}>
+          {options.map(o => (
+            <button key={o.value} type="button"
+              className={`csel-opt ${String(o.value) === String(value) ? 'selected' : ''}`}
+              onClick={() => { onChange(o.value); setOpen(false); }}>
+              {o.label}
+            </button>
+          ))}
+        </div>,
+        document.body
+      )}
+    </div>
   );
 }
 
