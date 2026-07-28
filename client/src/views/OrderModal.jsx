@@ -45,6 +45,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     if (line.productId !== NEW_PRODUCT) return line.productId;
     const p = await api.post('/api/products', { model: line.newModel, storage: line.newStorage, counts: {} });
     await onProductsChanged();
+    setLine(line.key, { productId: p.id });
     return p.id;
   };
 
@@ -72,14 +73,19 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
         toast('Order created');
       } else {
         await api.patch(`/api/orders/${order.id}`, { clientName, partner_id: partnerId, isRush, ...shipBody() });
-        for (const id of removedIds) await api.del(`/api/orders/${order.id}/lines/${id}`);
+        for (const id of removedIds) {
+          await api.del(`/api/orders/${order.id}/lines/${id}`);
+          setRemovedIds(ids => ids.filter(x => x !== id));
+        }
         for (const l of lines) {
           if (l.id) {
             await api.patch(`/api/orders/${order.id}/lines/${l.id}`,
               { grades: l.grades, battery_min: l.batteryMin || null, qty_ordered: l.qty });
           } else {
-            await api.post(`/api/orders/${order.id}/lines`,
+            const updated = await api.post(`/api/orders/${order.id}/lines`,
               { product_id: await resolveProduct(l), grades: l.grades, battery_min: l.batteryMin || null, qty: l.qty });
+            const created = updated.lines[updated.lines.length - 1];
+            if (created) setLine(l.key, { id: created.id, productName: created.productName });
           }
         }
         toast('Saved');
