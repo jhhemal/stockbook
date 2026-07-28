@@ -46,7 +46,7 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
 
   const save = async () => {
     if (!qtyOrdered || qtyOrdered < 1) { toast('Quantity needed must be at least 1'); return; }
-    if (!qty && qtyOrdered === line.qtyOrdered) { toast('Nothing changed'); return; }
+    if (!qty && qtyOrdered === line.qtyOrdered) { onClose(); return; }
     setBusy(true);
     try {
       if (qtyOrdered !== line.qtyOrdered) {
@@ -77,7 +77,7 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
         </div>
       </div>
       <div className="field">
-        <label>Units to add</label>
+        <label>Units needed now</label>
         <div className="stepper">
           <button type="button" className="step-btn" onClick={() => setQty(q => Math.max(0, q - 1))}>−</button>
           <input type="number" min="0" inputMode="numeric" value={qty}
