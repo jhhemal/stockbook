@@ -6,6 +6,7 @@ const partners = require('./routes/partners');
 const products = require('./routes/products');
 const sales = require('./routes/sales');
 const reports = require('./routes/reports');
+const orders = require('./routes/orders');
 
 const app = express();
 app.use(express.json());
@@ -30,6 +31,7 @@ app.use('/api/auth', auth);
 app.use('/api/users', users);
 app.use('/api/grades', grades);
 app.use('/api/partners', partners);
+app.use('/api/orders', orders);
 app.use('/api/products', products);
 app.use('/api/sales', sales);
 app.use('/api/reports', reports);
