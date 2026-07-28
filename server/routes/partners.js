@@ -30,7 +30,12 @@ router.patch('/:id', requireAdmin, async (req, res) => {
   if (!partner) return res.status(404).json({ detail: 'Partner not found' });
   const name = (req.body?.name ?? '').trim();
   const color = (req.body?.color ?? '').trim();
-  if (name) partner.name = name;
+  if (name && name !== partner.name) {
+    if (await models.Partner.findOne({ where: { name } })) {
+      return res.status(409).json({ detail: 'Partner already exists' });
+    }
+    partner.name = name;
+  }
   if (color) partner.color = color;
   await partner.save();
   res.json(partnerOut(partner));
