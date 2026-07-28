@@ -33,9 +33,8 @@ function lineLabel(line) {
 
 function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
   const toast = useToast();
-  const remaining = line.qtyOrdered - line.qtyFulfilled;
   const [qtyOrdered, setQtyOrdered] = useState(line.qtyOrdered);
-  const [qty, setQty] = useState(remaining > 0 ? remaining : 0);
+  const [qty, setQty] = useState(0);
   const [busy, setBusy] = useState(false);
 
   const product = products.find(p => p.id === line.productId);
@@ -78,11 +77,11 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
         </div>
       </div>
       <div className="field">
-        <label>Units to add (negative to correct)</label>
+        <label>Units to add</label>
         <div className="stepper">
-          <button type="button" className="step-btn" onClick={() => setQty(q => q - 1)}>−</button>
-          <input type="number" inputMode="numeric" value={qty}
-            onChange={e => setQty(parseInt(e.target.value) || 0)}
+          <button type="button" className="step-btn" onClick={() => setQty(q => Math.max(0, q - 1))}>−</button>
+          <input type="number" min="0" inputMode="numeric" value={qty}
+            onChange={e => setQty(Math.max(0, parseInt(e.target.value) || 0))}
             onFocus={e => e.target.select()} />
           <button type="button" className="step-btn" onClick={() => setQty(q => q + 1)}>+</button>
         </div>
