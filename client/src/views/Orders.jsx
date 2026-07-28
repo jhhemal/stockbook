@@ -69,15 +69,23 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
       </div>
       <div className="field">
         <label>Quantity needed</label>
-        <input type="number" min="1" inputMode="numeric" value={qtyOrdered}
-          onChange={e => setQtyOrdered(Math.max(1, parseInt(e.target.value) || 1))}
-          onFocus={e => e.target.select()} />
+        <div className="stepper">
+          <button type="button" className="step-btn" onClick={() => setQtyOrdered(q => Math.max(1, q - 1))}>−</button>
+          <input type="number" min="1" inputMode="numeric" value={qtyOrdered}
+            onChange={e => setQtyOrdered(Math.max(1, parseInt(e.target.value) || 1))}
+            onFocus={e => e.target.select()} />
+          <button type="button" className="step-btn" onClick={() => setQtyOrdered(q => q + 1)}>+</button>
+        </div>
       </div>
       <div className="field">
         <label>Units to add (negative to correct)</label>
-        <input type="number" inputMode="numeric" value={qty}
-          onChange={e => setQty(parseInt(e.target.value) || 0)}
-          onFocus={e => e.target.select()} />
+        <div className="stepper">
+          <button type="button" className="step-btn" onClick={() => setQty(q => q - 1)}>−</button>
+          <input type="number" inputMode="numeric" value={qty}
+            onChange={e => setQty(parseInt(e.target.value) || 0)}
+            onFocus={e => e.target.select()} />
+          <button type="button" className="step-btn" onClick={() => setQty(q => q + 1)}>+</button>
+        </div>
       </div>
       <div className="modal-actions">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
