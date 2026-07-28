@@ -86,6 +86,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
         line.newStorage = it.storage;
       }
       line.qty = it.qty;
+      line.note = it.note || '';
       return line;
     }));
     setPasteText('');
