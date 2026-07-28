@@ -6,6 +6,8 @@ Wholesale stock & sales tracking with WhatsApp-format text reports.
 ## Features
 
 - **Stock** — products (model + storage) with per-grade quantities, quick +/− adjustments, search
+- **Orders** — client buy orders as partner-colored sticky-note cards; per-line grades ("A or A-"), minimum battery %, rush flag, ship-by date/day; partial fulfillment with progress bars and auto-complete
+- **Partners** — internal partners (who orders come through) with their own note color, managed in Settings
 - **Dynamic grades** — A, A-, AB, B, Z, Genuine by default; admins can add/rename/delete any grade
 - **Sales** — recording a sale decrements stock automatically; deleting a sale restores it; oversell blocked
 - **Reports** — exact WhatsApp text format, filterable to any grade combination, plus "sold today / yesterday"; one-tap copy and direct wa.me share
@@ -76,6 +78,8 @@ Want to develop against your real Supabase data? Just put the pooler `DATABASE_U
 │   └── routes/
 │       ├── authUsers.js   # /api/auth (login, me) + /api/users (admin CRUD)
 │       ├── grades.js      # grade CRUD (write = admin, delete protected while in use)
+│       ├── orders.js      # orders + lines CRUD, fulfill with clamp + auto-complete
+│       ├── partners.js    # partner CRUD (write = admin, delete blocked while in use)
 │       ├── products.js    # product CRUD + /adjust + /set stock
 │       ├── sales.js       # create / list / delete-with-restore
 │       └── reports.js     # /stock, /sold, /movements
