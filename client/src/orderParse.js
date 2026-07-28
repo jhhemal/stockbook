@@ -1,10 +1,11 @@
 /* Parses pasted WhatsApp-style order notes. Quantity can show up as a
- * prefix ("2-13 pro 128"), a suffix ("14 x2" / "14PM 256 1x"), or a count in
- * parens ("iPhone 13 Pro 256gb (3)"). Lines with no recognizable quantity
- * marker (headers, "Total 16 pcs" footers, "*banner*" text) are skipped
- * rather than turned into a bogus item. A header line = client name,
- * optionally ending in a known grade that applies to every line below —
- * only checked when the first line isn't itself an item.
+ * prefix ("2-13 pro 128"), a suffix ("14 x2" / "14PM 256 1x"), a count in
+ * parens ("iPhone 13 Pro 256gb (3)"), or a bare trailing number. Lines with
+ * no recognizable quantity at all (footers like "Total 16 pcs", "*banner*"
+ * text) are skipped rather than turned into a bogus item. If the first line
+ * isn't itself an item, it's checked for a trailing grade (e.g. "A-") that
+ * then applies to every line below — client name is never guessed from it,
+ * since plenty of messages don't include one.
  */
 const STORAGE_SIZES = new Set([16, 32, 64, 128, 256, 512, 1024]);
 
@@ -68,8 +69,10 @@ function extractStorage(tokens) {
 }
 
 /* Find a quantity marker in a line: leading "N-", trailing "xN", trailing
- * "Nx", or a "(N)" count (anything after the parens becomes a note, e.g.
- * "(1) not black"). Returns null if the line has no quantity marker at all. */
+ * "Nx", a "(N)" count (anything after the parens becomes a note, e.g. "(1)
+ * not black"), or — failing all of those — a bare number that isn't the
+ * first word (the phone generation) and isn't a recognized storage size,
+ * which is taken to be the quantity. Returns null if nothing qualifies. */
 function extractQty(line) {
   let m = line.match(/^(\d+)\s*[-–]\s*(.+)$/);
   if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
@@ -83,30 +86,34 @@ function extractQty(line) {
   m = line.match(/^(.+?)\s*\((\d+)\)\s*(.*)$/);
   if (m) return { qty: parseInt(m[2], 10), body: m[1], trailingNote: m[3].trim() };
 
+  const tokens = line.split(/\s+/).filter(Boolean);
+  for (let i = tokens.length - 1; i >= 1; i--) {
+    if (!/^\d+$/.test(tokens[i])) continue;
+    const n = parseInt(tokens[i], 10);
+    if (STORAGE_SIZES.has(n)) continue;
+    const body = [...tokens.slice(0, i), ...tokens.slice(i + 1)].join(' ');
+    return { qty: n, body, trailingNote: '' };
+  }
+
   return null;
 }
 
-/* @param grades - [{name}] from the API, used to recognize a header grade suffix */
+/* @param grades - [{name}] from the API, used to recognize a header grade suffix.
+ * Client name is never auto-filled — messages don't always include one, and
+ * guessing wrong is worse than leaving it blank for the user to type. */
 export function parseOrderText(text, grades) {
   const rawLines = String(text || '').split('\n').map(l => stripEmoji(l).trim()).filter(Boolean);
   if (!rawLines.length) return { clientName: '', gradeName: '', items: [] };
 
-  let clientName = '';
   let gradeName = '';
   let itemLines = rawLines;
 
   if (!extractQty(rawLines[0])) {
     const header = rawLines[0];
-    clientName = header;
     const sortedGrades = [...grades].sort((a, b) => b.name.length - a.name.length);
     for (const g of sortedGrades) {
       const re = new RegExp('(?:^|\\s)' + escapeRegex(g.name) + '$', 'i');
-      const m = header.match(re);
-      if (m && header.slice(0, m.index).trim()) {
-        clientName = header.slice(0, m.index).trim();
-        gradeName = g.name;
-        break;
-      }
+      if (re.test(header)) { gradeName = g.name; break; }
     }
     itemLines = rawLines.slice(1);
   }
@@ -145,7 +152,7 @@ export function parseOrderText(text, grades) {
     items.push({ model, storage, qty, note });
   }
 
-  return { clientName, gradeName, items };
+  return { clientName: '', gradeName, items };
 }
 
 /* Best-effort match against existing products, tolerant of the "Pro Max" vs
