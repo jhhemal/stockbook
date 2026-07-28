@@ -2,6 +2,7 @@
    TOKENS
    ============================================================ */
 :root{
+  color-scheme:light; /* keep native selects/scrollbars/date pickers light even when the OS is in dark mode */
   --bg:#F6F7F5;
   --surface:#FFFFFF;
   --ink:#12160F;
@@ -33,6 +34,7 @@ body{
 button{font-family:var(--font);cursor:pointer;border:none;background:none;color:inherit}
 input,select{font-family:var(--font);font-size:15px}
 input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 ::selection{background:var(--accent-soft)}
 [hidden]{display:none!important}
 
@@ -415,8 +417,7 @@ textarea{
 .line-newprod input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface)}
 .line-editor-bottom{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
 .seg-sm{padding:5px 10px;font-size:12.5px}
-.battery-select{margin-left:auto;min-width:120px}
-.battery-select select{padding:7px 26px 7px 10px;font-size:13px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);width:100%;appearance:none;-webkit-appearance:none}
+.battery-seg{margin-left:auto}
 .order-status-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 
 /* ============================================================

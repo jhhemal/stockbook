@@ -242,15 +242,16 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           {line.productId === NEW_PRODUCT && (
             <div className="line-newprod">
               <input value={line.newModel} onChange={e => setLine(line.key, { newModel: e.target.value })} placeholder="Model, e.g. 17 Pro" />
-              <input value={line.newStorage} onChange={e => setLine(line.key, { newStorage: e.target.value })} placeholder="Storage (optional)" />
+              <input value={line.newStorage} onChange={e => setLine(line.key, { newStorage: e.target.value })} placeholder="Any (edit later)" />
             </div>
           )}
           <div className="line-editor-bottom">
-            <div className="select-wrap battery-select">
-              <select value={line.batteryMin} onChange={e => setLine(line.key, { batteryMin: e.target.value })}>
-                <option value="">Battery: any</option>
-                {[80, 85, 90, 95].map(b => <option key={b} value={b}>{b}%+</option>)}
-              </select>
+            <div className="seg battery-seg">
+              {['', 80, 85, 90, 95].map(b => (
+                <button key={b || 'any'} type="button" className={`seg-btn seg-sm ${String(line.batteryMin) === String(b) ? 'selected' : ''}`}
+                  aria-pressed={String(line.batteryMin) === String(b)}
+                  onClick={() => setLine(line.key, { batteryMin: b })}>{b ? `${b}%+` : 'Any'}</button>
+              ))}
             </div>
           </div>
         </div>
