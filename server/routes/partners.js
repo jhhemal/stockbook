@@ -28,8 +28,10 @@ router.post('/', requireAdmin, async (req, res) => {
 router.patch('/:id', requireAdmin, async (req, res) => {
   const partner = await models.Partner.findByPk(req.params.id);
   if (!partner) return res.status(404).json({ detail: 'Partner not found' });
-  if (req.body?.name) partner.name = req.body.name.trim();
-  if (req.body?.color) partner.color = req.body.color.trim();
+  const name = (req.body?.name ?? '').trim();
+  const color = (req.body?.color ?? '').trim();
+  if (name) partner.name = name;
+  if (color) partner.color = color;
   await partner.save();
   res.json(partnerOut(partner));
 });
