@@ -1,10 +1,193 @@
-export default function Orders() {
+import { useEffect, useState } from 'react';
+import { api } from '../api';
+import { Icon, Modal, useToast } from '../ui';
+import OrderModal from './OrderModal';
+
+const WEEKDAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
+
+export function shipByLabel(o) {
+  if (!o.shipByType || !o.shipByValue) return null;
+  if (o.shipByType === 'day') return WEEKDAY_SHORT[o.shipByValue] || o.shipByValue;
+  const d = new Date(o.shipByValue + 'T00:00:00');
+  return isNaN(d) ? o.shipByValue : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+}
+
+function shipByOverdue(o) {
+  return o.status === 'active' && o.shipByType === 'date' &&
+    o.shipByValue < new Date().toISOString().slice(0, 10);
+}
+
+function barClass(line) {
+  const p = line.qtyOrdered ? line.qtyFulfilled / line.qtyOrdered : 0;
+  if (p >= 1) return 'green';
+  if (p >= 1 / 3) return 'blue';
+  return 'red';
+}
+
+function lineLabel(line) {
+  let s = line.productName;
+  if (line.grades.length) s += ' · ' + line.grades.join('/');
+  if (line.batteryMin) s += ` · ${line.batteryMin}+`;
+  return s;
+}
+
+function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
+  const toast = useToast();
+  const remaining = line.qtyOrdered - line.qtyFulfilled;
+  const [qty, setQty] = useState(remaining > 0 ? remaining : 0);
+  const [busy, setBusy] = useState(false);
+
+  const product = products.find(p => p.id === line.productId);
+  const stockHint = product
+    ? (line.grades.length
+        ? grades.filter(g => line.grades.includes(g.name)).map(g => `${g.name} ${product.counts[g.id] || 0}`).join(' · ')
+        : `${product.total} total`)
+    : null;
+
+  const save = async () => {
+    if (!qty) { toast('Enter a quantity'); return; }
+    setBusy(true);
+    try {
+      await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, { qty });
+      toast('Updated');
+      onSaved();
+    } catch (err) { toast(err.message); setBusy(false); }
+  };
+
   return (
-    <div className="page-head">
-      <div>
-        <div className="page-title">Orders</div>
-        <div className="page-sub">Coming in the next task</div>
+    <Modal title={lineLabel(line)} onClose={onClose}>
+      <div className="fulfill-meta">
+        <span><b>{line.qtyFulfilled}</b> of <b>{line.qtyOrdered}</b> supplied</span>
+        {stockHint && <span className="row-sub">In stock: {stockHint}</span>}
       </div>
-    </div>
+      <div className="field">
+        <label>Units to add (negative to correct)</label>
+        <input type="number" inputMode="numeric" value={qty}
+          onChange={e => setQty(parseInt(e.target.value) || 0)}
+          onFocus={e => e.target.select()} />
+      </div>
+      <div className="modal-actions">
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" disabled={busy} onClick={save}>Save</button>
+      </div>
+    </Modal>
+  );
+}
+
+export default function Orders({ me }) {
+  const toast = useToast();
+  const [orders, setOrders] = useState(null);
+  const [partners, setPartners] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [grades, setGrades] = useState([]);
+  const [tab, setTab] = useState('active');           // active | done
+  const [partnerFilter, setPartnerFilter] = useState('');
+  const [editing, setEditing] = useState(undefined);  // undefined=closed, null=new, obj=edit
+  const [fulfilling, setFulfilling] = useState(null); // { order, line }
+
+  const loadOrders = async (t = tab, pf = partnerFilter) => {
+    try {
+      const q = `/api/orders?status=${t}` + (pf ? `&partner_id=${pf}` : '');
+      setOrders(await api.get(q));
+    } catch (err) { toast(err.message); }
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const [pt, p, g] = await Promise.all([
+          api.get('/api/partners'), api.get('/api/products'), api.get('/api/grades'),
+        ]);
+        setPartners(pt); setProducts(p); setGrades(g);
+        await loadOrders();
+      } catch (err) { toast(err.message); }
+    })();
+  }, []);
+
+  const switchTab = t => { setTab(t); setOrders(null); loadOrders(t, partnerFilter); };
+  const switchPartner = id => {
+    const next = partnerFilter === id ? '' : id;
+    setPartnerFilter(next); setOrders(null); loadOrders(tab, next);
+  };
+
+  if (!orders) return <div className="loading">Loading…</div>;
+
+  const unitsNeeded = orders.reduce((n, o) =>
+    n + (o.status === 'active' ? o.lines.reduce((m, l) => m + Math.max(0, l.qtyOrdered - l.qtyFulfilled), 0) : 0), 0);
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <div className="page-title">Orders</div>
+          <div className="page-sub">
+            {tab === 'active' ? `${orders.length} active · ${unitsNeeded} units still needed` : `${orders.length} finished`}
+          </div>
+        </div>
+        <button className="btn btn-primary" onClick={() => setEditing(null)}>
+          <Icon name="plus" /> New order
+        </button>
+      </div>
+
+      <div className="chips" style={{ marginBottom: 16 }}>
+        <button className={`chip ${tab === 'active' ? 'selected' : ''}`} onClick={() => switchTab('active')}>Active</button>
+        <button className={`chip ${tab === 'done' ? 'selected' : ''}`} onClick={() => switchTab('done')}>Completed</button>
+        <span style={{ width: 6 }}></span>
+        {partners.map(p => (
+          <button key={p.id} className={`chip ${partnerFilter === p.id ? 'selected' : ''}`} onClick={() => switchPartner(p.id)}>
+            <span className="pdot" style={{ background: p.color, width: 9, height: 9, marginRight: 6 }}></span>{p.name}
+          </button>
+        ))}
+      </div>
+
+      <div className="orders-grid">
+        {orders.length ? orders.map(o => (
+          <div className="order-card" key={o.id} style={{ borderLeftColor: o.partnerColor }}>
+            <div className="order-head">
+              <div className="order-client">{o.clientName}</div>
+              {o.isRush && <span className="rush-pill"><Icon name="bolt" size={11} /> Rush</span>}
+              {o.status === 'cancelled' && <span className="pill off">cancelled</span>}
+              <button className="edit-dot" aria-label="Edit order" onClick={() => setEditing(o)}><Icon name="dots" /></button>
+            </div>
+            <div className="order-sub">
+              via {o.partnerName}
+              {shipByLabel(o) && <> · <span className={shipByOverdue(o) ? 'overdue' : ''}>ship by {shipByLabel(o)}</span></>}
+            </div>
+            {o.lines.map(l => {
+              const done = l.qtyFulfilled >= l.qtyOrdered;
+              return (
+                <div className={`order-line ${done ? 'ol-done' : ''}`} key={l.id} role="button"
+                  onClick={() => o.status !== 'cancelled' && setFulfilling({ order: o, line: l })}>
+                  <div className="ol-row">
+                    <span className="ol-name">{lineLabel(l)}</span>
+                    <span className="ol-qty">{l.qtyFulfilled}/{l.qtyOrdered}{done ? ' ✓' : ''}</span>
+                  </div>
+                  <div className="obar">
+                    <i className={barClass(l)} style={{ width: `${Math.min(100, (l.qtyFulfilled / l.qtyOrdered) * 100)}%` }}></i>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )) : (
+          <div className="empty" style={{ gridColumn: '1/-1' }}>
+            <b>{tab === 'active' ? 'No active orders' : 'Nothing here yet'}</b>
+            <p>{tab === 'active' ? 'Tap "New order" to write your first note.' : 'Completed and cancelled orders will appear here.'}</p>
+          </div>
+        )}
+      </div>
+
+      {editing !== undefined && (
+        <OrderModal order={editing} me={me} partners={partners} products={products} grades={grades}
+          onClose={() => setEditing(undefined)}
+          onSaved={() => { setEditing(undefined); loadOrders(); }}
+          onProductsChanged={async () => setProducts(await api.get('/api/products'))} />
+      )}
+      {fulfilling && (
+        <FulfillModal order={fulfilling.order} line={fulfilling.line} products={products} grades={grades}
+          onClose={() => setFulfilling(null)}
+          onSaved={() => { setFulfilling(null); loadOrders(); }} />
+      )}
+    </>
   );
 }
