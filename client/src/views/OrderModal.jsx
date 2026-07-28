@@ -9,12 +9,13 @@ const NEW_PRODUCT = '__new';
 let lineKey = 0;
 const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: '', newStorage: '', batteryMin: '', qty: 1 });
 
-/* Lines used to carry their own grades; orders in practice use one grade for
- * everything, so pick it up as the order-level default when editing. */
-function commonGrade(orderLines) {
-  const first = orderLines[0]?.grades?.length === 1 ? orderLines[0].grades[0] : '';
-  if (!first) return '';
-  return orderLines.every(l => l.grades?.length === 1 && l.grades[0] === first) ? first : '';
+/* Lines used to carry their own grades; orders in practice use the same
+ * grade set for everything, so pick it up as the order-level default. */
+function commonGrades(orderLines) {
+  const first = orderLines[0]?.grades || [];
+  const key = [...first].sort().join(',');
+  const same = orderLines.every(l => [...(l.grades || [])].sort().join(',') === key);
+  return same ? first : [];
 }
 
 export default function OrderModal({ order, me, partners, products, grades, onClose, onSaved, onProductsChanged }) {
@@ -23,7 +24,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   const [clientName, setClientName] = useState(order?.clientName || '');
   const [partnerId, setPartnerId] = useState(order?.partnerId || partners[0]?.id || '');
   const [isRush, setIsRush] = useState(order?.isRush || false);
-  const [gradeName, setGradeName] = useState(order ? commonGrade(order.lines) : '');
+  const [gradeNames, setGradeNames] = useState(() => (order ? commonGrades(order.lines) : []));
   const [shipMode, setShipMode] = useState(order?.shipByType || 'none'); // none | date | day
   const [shipDate, setShipDate] = useState(order?.shipByType === 'date' ? order.shipByValue : '');
   const [shipDay, setShipDay] = useState(order?.shipByType === 'day' ? order.shipByValue : 'Friday');
@@ -44,12 +45,14 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     if (line.id) setRemovedIds(ids => [...ids, line.id]);
     setLines(ls => ls.filter(l => l.key !== line.key));
   };
+  const toggleGrade = name =>
+    setGradeNames(gs => (gs.includes(name) ? gs.filter(g => g !== name) : [...gs, name]));
 
   const handleParse = () => {
     const { clientName: cn, gradeName: gn, items } = parseOrderText(pasteText, grades);
     if (!items.length) { toast('No order lines found in that text'); return; }
     if (cn) setClientName(cn);
-    if (gn) setGradeName(gn);
+    if (gn) setGradeNames([gn]);
     setLines(items.map(it => {
       const line = blankLine();
       const match = matchProduct(products, it.model, it.storage);
@@ -99,9 +102,8 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           clientName, partner_id: partnerId, isRush, ...shipBody(),
           lines: [],
         };
-        const lineGrades = gradeName ? [gradeName] : [];
         for (const l of lines) {
-          body.lines.push({ product_id: await resolveProduct(l), grades: lineGrades, battery_min: l.batteryMin || null, qty: l.qty });
+          body.lines.push({ product_id: await resolveProduct(l), grades: gradeNames, battery_min: l.batteryMin || null, qty: l.qty });
         }
         await api.post('/api/orders', body);
         toast('Order created');
@@ -111,14 +113,13 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           await api.del(`/api/orders/${order.id}/lines/${id}`);
           setRemovedIds(ids => ids.filter(x => x !== id));
         }
-        const lineGrades = gradeName ? [gradeName] : [];
         for (const l of lines) {
           if (l.id) {
             await api.patch(`/api/orders/${order.id}/lines/${l.id}`,
-              { grades: lineGrades, battery_min: l.batteryMin || null, qty_ordered: l.qty });
+              { grades: gradeNames, battery_min: l.batteryMin || null, qty_ordered: l.qty });
           } else {
             const updated = await api.post(`/api/orders/${order.id}/lines`,
-              { product_id: await resolveProduct(l), grades: lineGrades, battery_min: l.batteryMin || null, qty: l.qty });
+              { product_id: await resolveProduct(l), grades: gradeNames, battery_min: l.batteryMin || null, qty: l.qty });
             const created = updated.lines[updated.lines.length - 1];
             if (created) setLine(l.key, { id: created.id, productName: created.productName });
           }
@@ -177,13 +178,14 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
             </select>
           </div>
         </div>
-        <div className="field">
+        <div className="field full">
           <label>Grade</label>
-          <div className="select-wrap">
-            <select value={gradeName} onChange={e => setGradeName(e.target.value)}>
-              <option value="">Any grade</option>
-              {grades.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
-            </select>
+          <div className="seg">
+            {grades.map(g => (
+              <button key={g.id} type="button" className={`seg-btn ${gradeNames.includes(g.name) ? 'selected' : ''}`}
+                aria-pressed={gradeNames.includes(g.name)}
+                onClick={() => toggleGrade(g.name)}>{g.name}</button>
+            ))}
           </div>
         </div>
         <div className="field">
