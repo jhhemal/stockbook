@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon, Modal, useToast } from '../ui';
 import OrderModal from './OrderModal';
@@ -84,12 +84,17 @@ export default function Orders({ me }) {
   const [partnerFilter, setPartnerFilter] = useState('');
   const [editing, setEditing] = useState(undefined);  // undefined=closed, null=new, obj=edit
   const [fulfilling, setFulfilling] = useState(null); // { order, line }
+  const [loadError, setLoadError] = useState(false);
+  const loadSeq = useRef(0);
 
   const loadOrders = async (t = tab, pf = partnerFilter) => {
     try {
       const q = `/api/orders?status=${t}` + (pf ? `&partner_id=${pf}` : '');
-      setOrders(await api.get(q));
-    } catch (err) { toast(err.message); }
+      const seq = ++loadSeq.current;
+      const data = await api.get(q);
+      if (seq !== loadSeq.current) return;   // stale response, ignore
+      setOrders(data); setLoadError(false);
+    } catch (err) { toast(err.message); setOrders([]); setLoadError(true); }
   };
 
   useEffect(() => {
@@ -155,9 +160,11 @@ export default function Orders({ me }) {
             </div>
             {o.lines.map(l => {
               const done = l.qtyFulfilled >= l.qtyOrdered;
+              const clickable = o.status !== 'cancelled';
               return (
-                <div className={`order-line ${done ? 'ol-done' : ''}`} key={l.id} role="button"
-                  onClick={() => o.status !== 'cancelled' && setFulfilling({ order: o, line: l })}>
+                <button type="button" className={`order-line ${done ? 'ol-done' : ''}`} key={l.id}
+                  disabled={!clickable}
+                  onClick={() => clickable && setFulfilling({ order: o, line: l })}>
                   <div className="ol-row">
                     <span className="ol-name">{lineLabel(l)}</span>
                     <span className="ol-qty">{l.qtyFulfilled}/{l.qtyOrdered}{done ? ' ✓' : ''}</span>
@@ -165,11 +172,16 @@ export default function Orders({ me }) {
                   <div className="obar">
                     <i className={barClass(l)} style={{ width: `${Math.min(100, (l.qtyFulfilled / l.qtyOrdered) * 100)}%` }}></i>
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
-        )) : (
+        )) : loadError ? (
+          <div className="empty" style={{ gridColumn: '1/-1' }}>
+            <b>Couldn't load orders</b>
+            <p><button className="btn btn-ghost btn-sm" onClick={() => { setOrders(null); setLoadError(false); loadOrders(); }}>Retry</button></p>
+          </div>
+        ) : (
           <div className="empty" style={{ gridColumn: '1/-1' }}>
             <b>{tab === 'active' ? 'No active orders' : 'Nothing here yet'}</b>
             <p>{tab === 'active' ? 'Tap "New order" to write your first note.' : 'Completed and cancelled orders will appear here.'}</p>
