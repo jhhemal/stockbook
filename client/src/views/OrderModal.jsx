@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../api';
 import { Icon, Modal, useToast } from '../ui';
+import { parseOrderText, matchProduct } from '../orderParse';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const NEW_PRODUCT = '__new';
@@ -26,6 +27,8 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
       : [blankLine()]);
   const [removedIds, setRemovedIds] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
+  const [pasteText, setPasteText] = useState('');
 
   const setLine = (key, patch) => setLines(ls => ls.map(l => (l.key === key ? { ...l, ...patch } : l)));
   const removeLine = line => {
@@ -34,6 +37,29 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   };
   const toggleGrade = (line, name) =>
     setLine(line.key, { grades: line.grades.includes(name) ? line.grades.filter(g => g !== name) : [...line.grades, name] });
+
+  const handleParse = () => {
+    const { clientName: cn, gradeName, items } = parseOrderText(pasteText, grades);
+    if (!items.length) { toast('No order lines found in that text'); return; }
+    if (cn) setClientName(cn);
+    setLines(items.map(it => {
+      const line = blankLine();
+      const match = matchProduct(products, it.model, it.storage);
+      if (match) {
+        line.productId = match.id;
+      } else {
+        line.productId = NEW_PRODUCT;
+        line.newModel = it.model;
+        line.newStorage = it.storage;
+      }
+      line.qty = it.qty;
+      if (gradeName) line.grades = [gradeName];
+      return line;
+    }));
+    setPasteText('');
+    setShowPaste(false);
+    toast(`Parsed ${items.length} line${items.length === 1 ? '' : 's'} — review before saving`);
+  };
 
   const shipBody = () => ({
     shipByType: shipMode === 'none' ? null : shipMode,
@@ -112,6 +138,23 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
 
   return (
     <Modal title={isNew ? 'New order' : `Edit ${order.clientName}`} onClose={onClose}>
+      {isNew && (
+        <div style={{ marginBottom: 16 }}>
+          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPaste(s => !s)}>
+            <Icon name="plus" /> Paste from WhatsApp
+          </button>
+          {showPaste && (
+            <div style={{ marginTop: 8 }}>
+              <textarea rows={7} value={pasteText} onChange={e => setPasteText(e.target.value)}
+                placeholder={'Tecnofly #2 A-\n14 x2\n13 pro Max x2\n15 128gb x1'} />
+              <div className="modal-actions" style={{ marginTop: 8 }}>
+                <button type="button" className="btn btn-ghost" onClick={() => { setShowPaste(false); setPasteText(''); }}>Cancel</button>
+                <button type="button" className="btn btn-primary" onClick={handleParse}>Parse</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className="form-grid">
         <div className="field full">
           <label>Client name</label>
