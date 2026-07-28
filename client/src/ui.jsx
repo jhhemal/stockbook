@@ -46,9 +46,9 @@ export function Icon({ name, size, className }) {
 }
 
 /* ---------- shared loading state (gear spinner + label) ---------- */
-export function Loading({ label = 'Loading', full = false }) {
+export function Loading({ label = 'Loading' }) {
   return (
-    <div className={`loading${full ? ' full' : ''}`}>
+    <div className="loading">
       <Icon name="settings" className="loading-gear" />
       <span>{label}</span>
     </div>

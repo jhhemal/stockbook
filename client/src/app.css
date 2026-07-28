@@ -58,7 +58,7 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 .app{display:flex;min-height:100dvh}
 .sidebar{
   width:224px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--line);
-  padding:28px 16px;position:sticky;top:0;height:100dvh;
+  padding:28px 16px;position:sticky;top:0;height:100dvh;z-index:35;
   display:flex;flex-direction:column;gap:4px;
 }
 .brand{display:flex;align-items:center;gap:10px;padding:0 10px 24px}
@@ -180,11 +180,11 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 .empty b{display:block;font-size:16px;color:var(--ink);margin-bottom:5px}
 .empty p{font-size:13.5px}
 .loading{
+  position:fixed;inset:0;z-index:20;background:var(--bg);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
-  text-align:center;color:var(--ink-3);min-height:100%;
+  text-align:center;color:var(--ink-3);
   animation:fadeIn .3s ease;
 }
-.loading.full{position:fixed;inset:0;z-index:50;background:var(--bg);min-height:0}
 .loading span{
   font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-2);
   animation:pulse 1.4s ease-in-out infinite;

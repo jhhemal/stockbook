@@ -82,7 +82,7 @@ export default function App() {
 
   const logout = () => { setToken(null); setUser(null); };
 
-  if (booting) return <Loading full />;
+  if (booting) return <Loading />;
   if (!user) return <Login onLogin={setUser} />;
 
   const views = {
