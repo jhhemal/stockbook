@@ -2,6 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 
 /* ---------- icons ---------- */
 const paths = {
+  orders: '<path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6"/><path d="M8 12h8M8 16h5"/>',
+  bolt: '<path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"/>',
   stock: '<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>',
   sales: '<path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>',
   report: '<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>',

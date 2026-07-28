@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, getToken, setToken } from './api';
 import { Icon, ToastProvider } from './ui';
+import Orders from './views/Orders';
 import Stock from './views/Stock';
 import Sales from './views/Sales';
 import Report from './views/Report';
@@ -8,6 +9,7 @@ import Settings from './views/Settings';
 import Reorder from './views/Reorder';
 
 const TABS = [
+  { key: 'orders', label: 'Orders' },
   { key: 'stock', label: 'Stock' },
   { key: 'sales', label: 'Sales' },
   { key: 'report', label: 'Report' },
@@ -63,7 +65,7 @@ function Login({ onLogin }) {
 export default function App() {
   const [user, setUser] = useState(null);
   const [booting, setBooting] = useState(true);
-  const [view, setView] = useState('stock');
+  const [view, setView] = useState('orders');
 
   useEffect(() => {
     const onUnauthorized = () => setUser(null);
@@ -84,6 +86,7 @@ export default function App() {
   if (!user) return <Login onLogin={setUser} />;
 
   const views = {
+    orders: <Orders me={user} />,
     stock: <Stock onReorder={() => setView('reorder')} />,
     sales: <Sales />,
     report: <Report />,
