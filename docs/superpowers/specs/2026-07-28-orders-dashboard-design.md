@@ -72,7 +72,8 @@ New route files following existing auth middleware conventions:
   (manual complete, cancel, reopen). Setting status to `completed` stamps `completedAt`
 - `DELETE /api/orders/:id` — admin only
 - `POST /api/orders/:id/lines` — add a line to an existing order
-- `PATCH /api/orders/:id/lines/:lineId` — edit a line (product, grades, batteryMin, qtyOrdered)
+- `PATCH /api/orders/:id/lines/:lineId` — edit a line (grades, batteryMin, qtyOrdered;
+  the product itself is fixed — remove the line and add a new one to change product)
 - `DELETE /api/orders/:id/lines/:lineId` — remove a line
 - `POST /api/orders/:id/lines/:lineId/fulfill` — `{ qty }` (positive to add, negative
   to correct); server clamps so 0 ≤ qtyFulfilled ≤ qtyOrdered. When all lines of the
@@ -99,13 +100,15 @@ New route files following existing auth middleware conventions:
   - **green** at 100%, with the line text struck through and dimmed
 - Tapping a line opens the **fulfill dialog**: current stock of the product shown
   as a hint, numeric input for units supplied now (+/−), Save
-- Card menu (⋯): edit order, mark completed, cancel, reopen, delete (admin)
+- Card ⋯ button opens the edit modal, which also hosts the status actions
+  (mark completed, cancel, reopen, delete for admins)
 
 ### New-order form (modal, same pattern as ProductModal)
 - Client name (text), partner (dropdown), Rush toggle
 - Ship-by: segmented toggle **Date | Day** → date input or weekday picker; optional
-- Lines editor: searchable product picker with **inline quick-add** (typing an unknown
-  model offers "Add '17 Pro 256' as new product" — creates it with zero stock),
+- Lines editor: product dropdown with an **inline quick-add** option ("+ New product…"
+  reveals model/storage inputs — creates the product with zero stock; a searchable
+  picker can replace the dropdown if the catalog grows),
   grade multi-select chips (from existing grades), optional battery-min field,
   quantity input; add/remove rows
 
