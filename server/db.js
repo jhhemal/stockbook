@@ -102,6 +102,7 @@ function defineModels(sequelize) {
     productName: { type: DataTypes.STRING(120), allowNull: false },       // snapshot
     grades: { type: DataTypes.JSON, allowNull: false, defaultValue: [] }, // ["A","A-"] = any of these
     batteryMin: { type: DataTypes.INTEGER, allowNull: true },             // 80 / 85 / 90 ...
+    note: { type: DataTypes.STRING(200), allowNull: true },               // free-text, e.g. "only pink, no black"
     qtyOrdered: { type: DataTypes.INTEGER, allowNull: false },
     qtyFulfilled: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
   }, { indexes: [{ fields: ['orderId'] }] });
@@ -188,7 +189,7 @@ async function connectDB() {
       const sequelize = createSequelize();
       const models = defineModels(sequelize);
       await sequelize.authenticate();
-      await sequelize.sync(); // creates tables if missing
+      await sequelize.sync({ alter: true }); // creates tables + adds/adjusts columns (no migrations tooling here)
       await seed(models);
       cached.sequelize = sequelize;
       Object.assign(cached.models, models);

@@ -28,6 +28,7 @@ function lineLabel(line) {
   let s = line.productName;
   if (line.grades.length) s += ' · ' + line.grades.join('/');
   if (line.batteryMin) s += ` · ${line.batteryMin}+`;
+  if (line.note) s += ` · ${line.note}`;
   return s;
 }
 

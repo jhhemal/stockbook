@@ -7,7 +7,7 @@ const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
 const NEW_PRODUCT = '__new';
 
 let lineKey = 0;
-const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: '', newStorage: '', qty: 1 });
+const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: '', newStorage: '', note: '', qty: 1 });
 
 const BATTERY_OPTIONS = [{ value: '', label: 'Any' }, ...[80, 85, 90, 95].map(b => ({ value: b, label: `${b}%+` }))];
 
@@ -39,7 +39,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     order
       ? order.lines.map(l => ({
           key: ++lineKey, id: l.id, productId: l.productId || '', productName: l.productName,
-          newModel: '', newStorage: '', qty: l.qtyOrdered,
+          newModel: '', newStorage: '', note: l.note || '', qty: l.qtyOrdered,
         }))
       : [blankLine()]);
   const [removedIds, setRemovedIds] = useState([]);
@@ -125,7 +125,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           lines: [],
         };
         for (const l of lines) {
-          body.lines.push({ product_id: await resolveProduct(l), grades: gradeNames, battery_min: batteryMin || null, qty: l.qty });
+          body.lines.push({ product_id: await resolveProduct(l), grades: gradeNames, battery_min: batteryMin || null, note: l.note, qty: l.qty });
         }
         await api.post('/api/orders', body);
         toast('Order created');
@@ -146,10 +146,10 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           try {
             if (l.id) {
               await api.patch(`/api/orders/${order.id}/lines/${l.id}`,
-                { grades: gradeNames, battery_min: batteryMin || null, qty_ordered: l.qty });
+                { grades: gradeNames, battery_min: batteryMin || null, note: l.note, qty_ordered: l.qty });
             } else {
               const updated = await api.post(`/api/orders/${order.id}/lines`,
-                { product_id: await resolveProduct(l), grades: gradeNames, battery_min: batteryMin || null, qty: l.qty });
+                { product_id: await resolveProduct(l), grades: gradeNames, battery_min: batteryMin || null, note: l.note, qty: l.qty });
               const created = updated.lines[updated.lines.length - 1];
               if (created) setLine(l.key, { id: created.id, productName: created.productName });
             }
@@ -281,6 +281,8 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
               <input value={line.newStorage} onChange={e => setLine(line.key, { newStorage: e.target.value })} placeholder="Any (edit later)" />
             </div>
           )}
+          <input className="line-note" value={line.note} onChange={e => setLine(line.key, { note: e.target.value })}
+            placeholder="Extra requirement, e.g. only pink, no black" />
         </div>
       ))}
       <button className="btn btn-ghost btn-sm" type="button" onClick={() => setLines(ls => [...ls, blankLine()])}>

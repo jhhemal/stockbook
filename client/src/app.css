@@ -455,6 +455,7 @@ textarea{
 .line-qty{width:72px!important;flex-shrink:0;padding:10px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface)}
 .line-newprod{display:flex;gap:8px;margin-top:8px}
 .line-newprod input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface)}
+.line-note{width:100%;margin-top:8px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);font-size:13.5px}
 .order-status-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 
 /* ============================================================

@@ -11,6 +11,7 @@ const lineOut = l => ({
   productName: l.productName,
   grades: l.grades || [],
   batteryMin: l.batteryMin,
+  note: l.note || '',
   qtyOrdered: l.qtyOrdered,
   qtyFulfilled: l.qtyFulfilled,
 });
@@ -55,7 +56,8 @@ async function buildLine(body) {
   if (!product) throw { status: 404, detail: 'Product not found' };
   const grades = Array.isArray(body?.grades) ? body.grades.map(String).filter(Boolean) : [];
   const batteryMin = body?.battery_min ? parseInt(body.battery_min) || null : null;
-  return { productId: product.id, productName: product.displayName, grades, batteryMin, qtyOrdered: qty };
+  const note = String(body?.note || '').trim().slice(0, 200) || null;
+  return { productId: product.id, productName: product.displayName, grades, batteryMin, note, qtyOrdered: qty };
 }
 
 /* Auto-complete: all lines full -> completed; otherwise back to active. Cancelled is manual-only. */
@@ -172,7 +174,7 @@ router.post('/:id/lines', async (req, res) => {
   res.status(201).json(orderOut(await loadOrder(order.id)));
 });
 
-/* PATCH /api/orders/:id/lines/:lineId — edit grades / battery_min / qty_ordered */
+/* PATCH /api/orders/:id/lines/:lineId — edit grades / battery_min / note / qty_ordered */
 router.patch('/:id/lines/:lineId', async (req, res) => {
   const line = await models.OrderLine.findOne({ where: { id: req.params.lineId, orderId: req.params.id } });
   if (!line) return res.status(404).json({ detail: 'Order line not found' });
@@ -181,6 +183,9 @@ router.patch('/:id/lines/:lineId', async (req, res) => {
   }
   if (req.body?.battery_min !== undefined) {
     line.batteryMin = req.body.battery_min ? parseInt(req.body.battery_min) || null : null;
+  }
+  if (req.body?.note !== undefined) {
+    line.note = String(req.body.note || '').trim().slice(0, 200) || null;
   }
   if (req.body?.qty_ordered !== undefined) {
     const q = parseInt(req.body.qty_ordered);
