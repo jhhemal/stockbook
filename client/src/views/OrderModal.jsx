@@ -7,7 +7,15 @@ const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Satur
 const NEW_PRODUCT = '__new';
 
 let lineKey = 0;
-const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: '', newStorage: '', grades: [], batteryMin: '', qty: 1 });
+const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: '', newStorage: '', batteryMin: '', qty: 1 });
+
+/* Lines used to carry their own grades; orders in practice use one grade for
+ * everything, so pick it up as the order-level default when editing. */
+function commonGrade(orderLines) {
+  const first = orderLines[0]?.grades?.length === 1 ? orderLines[0].grades[0] : '';
+  if (!first) return '';
+  return orderLines.every(l => l.grades?.length === 1 && l.grades[0] === first) ? first : '';
+}
 
 export default function OrderModal({ order, me, partners, products, grades, onClose, onSaved, onProductsChanged }) {
   const isNew = !order;
@@ -15,6 +23,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   const [clientName, setClientName] = useState(order?.clientName || '');
   const [partnerId, setPartnerId] = useState(order?.partnerId || partners[0]?.id || '');
   const [isRush, setIsRush] = useState(order?.isRush || false);
+  const [gradeName, setGradeName] = useState(order ? commonGrade(order.lines) : '');
   const [shipMode, setShipMode] = useState(order?.shipByType || 'none'); // none | date | day
   const [shipDate, setShipDate] = useState(order?.shipByType === 'date' ? order.shipByValue : '');
   const [shipDay, setShipDay] = useState(order?.shipByType === 'day' ? order.shipByValue : 'Friday');
@@ -22,7 +31,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     order
       ? order.lines.map(l => ({
           key: ++lineKey, id: l.id, productId: l.productId || '', productName: l.productName,
-          newModel: '', newStorage: '', grades: [...l.grades], batteryMin: l.batteryMin || '', qty: l.qtyOrdered,
+          newModel: '', newStorage: '', batteryMin: l.batteryMin || '', qty: l.qtyOrdered,
         }))
       : [blankLine()]);
   const [removedIds, setRemovedIds] = useState([]);
@@ -35,13 +44,12 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     if (line.id) setRemovedIds(ids => [...ids, line.id]);
     setLines(ls => ls.filter(l => l.key !== line.key));
   };
-  const toggleGrade = (line, name) =>
-    setLine(line.key, { grades: line.grades.includes(name) ? line.grades.filter(g => g !== name) : [...line.grades, name] });
 
   const handleParse = () => {
-    const { clientName: cn, gradeName, items } = parseOrderText(pasteText, grades);
+    const { clientName: cn, gradeName: gn, items } = parseOrderText(pasteText, grades);
     if (!items.length) { toast('No order lines found in that text'); return; }
     if (cn) setClientName(cn);
+    if (gn) setGradeName(gn);
     setLines(items.map(it => {
       const line = blankLine();
       const match = matchProduct(products, it.model, it.storage);
@@ -53,7 +61,6 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
         line.newStorage = it.storage;
       }
       line.qty = it.qty;
-      if (gradeName) line.grades = [gradeName];
       return line;
     }));
     setPasteText('');
@@ -92,8 +99,9 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           clientName, partner_id: partnerId, isRush, ...shipBody(),
           lines: [],
         };
+        const lineGrades = gradeName ? [gradeName] : [];
         for (const l of lines) {
-          body.lines.push({ product_id: await resolveProduct(l), grades: l.grades, battery_min: l.batteryMin || null, qty: l.qty });
+          body.lines.push({ product_id: await resolveProduct(l), grades: lineGrades, battery_min: l.batteryMin || null, qty: l.qty });
         }
         await api.post('/api/orders', body);
         toast('Order created');
@@ -103,13 +111,14 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           await api.del(`/api/orders/${order.id}/lines/${id}`);
           setRemovedIds(ids => ids.filter(x => x !== id));
         }
+        const lineGrades = gradeName ? [gradeName] : [];
         for (const l of lines) {
           if (l.id) {
             await api.patch(`/api/orders/${order.id}/lines/${l.id}`,
-              { grades: l.grades, battery_min: l.batteryMin || null, qty_ordered: l.qty });
+              { grades: lineGrades, battery_min: l.batteryMin || null, qty_ordered: l.qty });
           } else {
             const updated = await api.post(`/api/orders/${order.id}/lines`,
-              { product_id: await resolveProduct(l), grades: l.grades, battery_min: l.batteryMin || null, qty: l.qty });
+              { product_id: await resolveProduct(l), grades: lineGrades, battery_min: l.batteryMin || null, qty: l.qty });
             const created = updated.lines[updated.lines.length - 1];
             if (created) setLine(l.key, { id: created.id, productName: created.productName });
           }
@@ -165,6 +174,15 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           <div className="select-wrap">
             <select value={partnerId} onChange={e => setPartnerId(e.target.value)}>
               {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="field">
+          <label>Grade</label>
+          <div className="select-wrap">
+            <select value={gradeName} onChange={e => setGradeName(e.target.value)}>
+              <option value="">Any grade</option>
+              {grades.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
             </select>
           </div>
         </div>
@@ -226,13 +244,6 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
             </div>
           )}
           <div className="line-editor-bottom">
-            <div className="seg">
-              {grades.map(g => (
-                <button key={g.id} type="button" className={`seg-btn seg-sm ${line.grades.includes(g.name) ? 'selected' : ''}`}
-                  aria-pressed={line.grades.includes(g.name)}
-                  onClick={() => toggleGrade(line, g.name)}>{g.name}</button>
-              ))}
-            </div>
             <div className="select-wrap battery-select">
               <select value={line.batteryMin} onChange={e => setLine(line.key, { batteryMin: e.target.value })}>
                 <option value="">Battery: any</option>
