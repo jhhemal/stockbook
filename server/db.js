@@ -80,10 +80,46 @@ function defineModels(sequelize) {
     username: { type: DataTypes.STRING(50), allowNull: false, defaultValue: '' },
   }, { indexes: [{ fields: ['createdAt'] }] });
 
-  return { User, Grade, Product, Sale, StockMovement };
+  const Partner = sequelize.define('Partner', {
+    name: { type: DataTypes.STRING(50), allowNull: false, unique: true },
+    color: { type: DataTypes.STRING(20), allowNull: false },              // hex from sticky palette
+    sortOrder: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  }, { timestamps: false });
+
+  const Order = sequelize.define('Order', {
+    clientName: { type: DataTypes.STRING(80), allowNull: false },
+    partnerId: { type: DataTypes.INTEGER, allowNull: false },
+    status: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'active' }, // active | completed | cancelled
+    isRush: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false },
+    shipByType: { type: DataTypes.STRING(10), allowNull: true },          // date | day
+    shipByValue: { type: DataTypes.STRING(20), allowNull: true },         // ISO date or weekday name
+    completedAt: { type: DataTypes.DATE, allowNull: true },
+  }, { indexes: [{ fields: ['status'] }] });
+
+  const OrderLine = sequelize.define('OrderLine', {
+    orderId: { type: DataTypes.INTEGER, allowNull: false },
+    productId: { type: DataTypes.INTEGER, allowNull: true },              // null after product delete
+    productName: { type: DataTypes.STRING(120), allowNull: false },       // snapshot
+    grades: { type: DataTypes.JSON, allowNull: false, defaultValue: [] }, // ["A","A-"] = any of these
+    batteryMin: { type: DataTypes.INTEGER, allowNull: true },             // 80 / 85 / 90 ...
+    qtyOrdered: { type: DataTypes.INTEGER, allowNull: false },
+    qtyFulfilled: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  }, { indexes: [{ fields: ['orderId'] }] });
+
+  Order.hasMany(OrderLine, { foreignKey: 'orderId', as: 'lines' });
+  OrderLine.belongsTo(Order, { foreignKey: 'orderId' });
+  Order.belongsTo(Partner, { foreignKey: 'partnerId', as: 'partner' });
+
+  return { User, Grade, Product, Sale, StockMovement, Partner, Order, OrderLine };
 }
 
 const DEFAULT_GRADES = ['A', 'A-', 'AB', 'B', 'Z', 'Genuine'];
+
+const DEFAULT_PARTNERS = [
+  ['Noori', '#F59E0B'],
+  ['Jaques', '#3B82F6'],
+  ['Shiful', '#22C55E'],
+];
 
 // (model, storage, {grade: qty}) — initial stock from the manual list
 const INITIAL_STOCK = [
@@ -108,7 +144,7 @@ const INITIAL_STOCK = [
 ];
 
 async function seed(models) {
-  const { User, Grade, Product, StockMovement } = models;
+  const { User, Grade, Product, StockMovement, Partner } = models;
 
   if ((await User.count()) === 0) {
     await User.create({
@@ -120,6 +156,10 @@ async function seed(models) {
 
   if ((await Grade.count()) === 0) {
     await Grade.bulkCreate(DEFAULT_GRADES.map((name, i) => ({ name, sortOrder: i })));
+  }
+
+  if ((await Partner.count()) === 0) {
+    await Partner.bulkCreate(DEFAULT_PARTNERS.map(([name, color], i) => ({ name, color, sortOrder: i })));
   }
 
   if ((await Product.count()) === 0) {
