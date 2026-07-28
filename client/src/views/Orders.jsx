@@ -36,6 +36,7 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
   const toast = useToast();
   const [qtyOrdered, setQtyOrdered] = useState(line.qtyOrdered);
   const [qtyFulfilled, setQtyFulfilled] = useState(line.qtyFulfilled);
+  const [note, setNote] = useState(line.note || '');
   const [busy, setBusy] = useState(false);
 
   const product = products.find(p => p.id === line.productId);
@@ -48,11 +49,13 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
   const save = async () => {
     if (!qtyOrdered || qtyOrdered < 1) { toast('Quantity needed must be at least 1'); return; }
     const delta = qtyFulfilled - line.qtyFulfilled;
-    if (!delta && qtyOrdered === line.qtyOrdered) { onClose(); return; }
+    const noteChanged = note !== (line.note || '');
+    if (!delta && qtyOrdered === line.qtyOrdered && !noteChanged) { onClose(); return; }
     setBusy(true);
     try {
-      if (qtyOrdered !== line.qtyOrdered) {
-        await api.patch(`/api/orders/${order.id}/lines/${line.id}`, { qty_ordered: qtyOrdered });
+      if (qtyOrdered !== line.qtyOrdered || noteChanged) {
+        await api.patch(`/api/orders/${order.id}/lines/${line.id}`,
+          { qty_ordered: qtyOrdered, note });
       }
       if (delta) {
         await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, { qty: delta });
@@ -87,6 +90,10 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
             onFocus={e => e.target.select()} />
           <button type="button" className="step-btn" onClick={() => setQtyFulfilled(q => Math.min(qtyOrdered, q + 1))}>+</button>
         </div>
+      </div>
+      <div className="field">
+        <label>Extra requirement</label>
+        <input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. only pink, no black" />
       </div>
       <div className="modal-actions">
         <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
