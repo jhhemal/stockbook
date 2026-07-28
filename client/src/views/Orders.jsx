@@ -88,13 +88,16 @@ export default function Orders({ me }) {
   const loadSeq = useRef(0);
 
   const loadOrders = async (t = tab, pf = partnerFilter) => {
+    const seq = ++loadSeq.current;
     try {
       const q = `/api/orders?status=${t}` + (pf ? `&partner_id=${pf}` : '');
-      const seq = ++loadSeq.current;
       const data = await api.get(q);
       if (seq !== loadSeq.current) return;   // stale response, ignore
       setOrders(data); setLoadError(false);
-    } catch (err) { toast(err.message); setOrders([]); setLoadError(true); }
+    } catch (err) {
+      if (seq !== loadSeq.current) return;   // stale failure, ignore
+      toast(err.message); setOrders([]); setLoadError(true);
+    }
   };
 
   useEffect(() => {
