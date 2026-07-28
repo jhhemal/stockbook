@@ -30,6 +30,10 @@ function GradeModal({ grade, onClose, onSaved }) {
 }
 
 export const PARTNER_PALETTE = ['#F59E0B', '#3B82F6', '#22C55E', '#EF4444', '#A855F7', '#EC4899', '#14B8A6', '#EAB308'];
+const PALETTE_NAMES = {
+  '#F59E0B': 'Amber', '#3B82F6': 'Blue', '#22C55E': 'Green', '#EF4444': 'Red',
+  '#A855F7': 'Purple', '#EC4899': 'Pink', '#14B8A6': 'Teal', '#EAB308': 'Yellow',
+};
 
 function PartnerModal({ partner, onClose, onSaved }) {
   const isNew = !partner;
@@ -55,8 +59,9 @@ function PartnerModal({ partner, onClose, onSaved }) {
         <label>Note color</label>
         <div className="swatches">
           {PARTNER_PALETTE.map(c => (
-            <button key={c} className={`swatch ${color === c ? 'selected' : ''}`}
-              style={{ background: c }} aria-label={c} onClick={() => setColor(c)} />
+            <button key={c} type="button" className={`swatch ${color === c ? 'selected' : ''}`}
+              style={{ background: c }} aria-label={PALETTE_NAMES[c] || c} aria-pressed={color === c}
+              onClick={() => setColor(c)} />
           ))}
         </div>
       </div>
