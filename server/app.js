@@ -2,6 +2,7 @@ const express = require('express');
 const { connectDB } = require('./db');
 const { auth, users } = require('./routes/authUsers');
 const grades = require('./routes/grades');
+const partners = require('./routes/partners');
 const products = require('./routes/products');
 const sales = require('./routes/sales');
 const reports = require('./routes/reports');
@@ -28,6 +29,7 @@ app.use('/api', async (req, res, next) => {
 app.use('/api/auth', auth);
 app.use('/api/users', users);
 app.use('/api/grades', grades);
+app.use('/api/partners', partners);
 app.use('/api/products', products);
 app.use('/api/sales', sales);
 app.use('/api/reports', reports);
