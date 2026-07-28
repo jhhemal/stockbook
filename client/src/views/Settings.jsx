@@ -29,6 +29,45 @@ function GradeModal({ grade, onClose, onSaved }) {
   );
 }
 
+export const PARTNER_PALETTE = ['#F59E0B', '#3B82F6', '#22C55E', '#EF4444', '#A855F7', '#EC4899', '#14B8A6', '#EAB308'];
+
+function PartnerModal({ partner, onClose, onSaved }) {
+  const isNew = !partner;
+  const toast = useToast();
+  const [name, setName] = useState(partner?.name || '');
+  const [color, setColor] = useState(partner?.color || PARTNER_PALETTE[0]);
+  const save = async () => {
+    if (!name.trim()) { toast('Name is required'); return; }
+    try {
+      if (isNew) await api.post('/api/partners', { name, color });
+      else await api.patch(`/api/partners/${partner.id}`, { name, color });
+      toast(isNew ? 'Partner added' : 'Saved');
+      onSaved();
+    } catch (err) { toast(err.message); }
+  };
+  return (
+    <Modal title={isNew ? 'Add partner' : `Edit ${partner.name}`} onClose={onClose}>
+      <div className="field" style={{ marginBottom: 14 }}>
+        <label>Partner name</label>
+        <input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Noori" />
+      </div>
+      <div className="field">
+        <label>Note color</label>
+        <div className="swatches">
+          {PARTNER_PALETTE.map(c => (
+            <button key={c} className={`swatch ${color === c ? 'selected' : ''}`}
+              style={{ background: c }} aria-label={c} onClick={() => setColor(c)} />
+          ))}
+        </div>
+      </div>
+      <div className="modal-actions">
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" onClick={save}>{isNew ? 'Add' : 'Save'}</button>
+      </div>
+    </Modal>
+  );
+}
+
 function UserModal({ user, me, onClose, onSaved }) {
   const isNew = !user;
   const toast = useToast();
@@ -100,8 +139,10 @@ export default function Settings({ me }) {
   const [grades, setGrades] = useState([]);
   const [users, setUsers] = useState([]);
   const [movements, setMovements] = useState([]);
+  const [partners, setPartners] = useState([]);
   const [gradeModal, setGradeModal] = useState(undefined);
   const [userModal, setUserModal] = useState(undefined);
+  const [partnerModal, setPartnerModal] = useState(undefined);
   const [stickyAdd, setStickyAddState] = useState(getStickyAdd());
 
   const toggleStickyAdd = () => {
@@ -112,10 +153,10 @@ export default function Settings({ me }) {
 
   const load = async () => {
     try {
-      const [g, m] = await Promise.all([
-        api.get('/api/grades'), api.get('/api/reports/movements?limit=40'),
+      const [g, m, pt] = await Promise.all([
+        api.get('/api/grades'), api.get('/api/reports/movements?limit=40'), api.get('/api/partners'),
       ]);
-      setGrades(g); setMovements(m);
+      setGrades(g); setMovements(m); setPartners(pt);
       if (isAdmin) setUsers(await api.get('/api/users'));
     } catch (err) { toast(err.message); }
   };
@@ -124,6 +165,11 @@ export default function Settings({ me }) {
   const deleteGrade = async g => {
     if (!confirm(`Delete grade '${g.name}'?`)) return;
     try { await api.del(`/api/grades/${g.id}`); load(); toast('Grade deleted'); }
+    catch (err) { toast(err.message); }
+  };
+  const deletePartner = async p => {
+    if (!confirm(`Delete partner '${p.name}'?`)) return;
+    try { await api.del(`/api/partners/${p.id}`); load(); toast('Partner deleted'); }
     catch (err) { toast(err.message); }
   };
   const deleteUser = async u => {
@@ -179,6 +225,33 @@ export default function Settings({ me }) {
                 )}
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-section">
+        <div className="page-head" style={{ marginBottom: 10 }}>
+          <div className="side-label" style={{ margin: 0 }}>Partners</div>
+          {isAdmin && (
+            <button className="btn btn-ghost btn-sm" onClick={() => setPartnerModal(null)}>
+              <Icon name="plus" /> Add partner
+            </button>
+          )}
+        </div>
+        <div className="card">
+          <div className="row-list">
+            {partners.length ? partners.map(p => (
+              <div className="row-item" key={p.id}>
+                <span className="pdot" style={{ background: p.color }}></span>
+                <div className="row-main">{p.name}</div>
+                {isAdmin && (
+                  <div className="row-actions">
+                    <button className="icon-btn" aria-label="Edit" onClick={() => setPartnerModal(p)}><Icon name="edit" /></button>
+                    <button className="icon-btn danger" aria-label="Delete" onClick={() => deletePartner(p)}><Icon name="trash" /></button>
+                  </div>
+                )}
+              </div>
+            )) : <div className="empty" style={{ padding: 20 }}><p>No partners yet.</p></div>}
           </div>
         </div>
       </div>
@@ -242,6 +315,10 @@ export default function Settings({ me }) {
       {userModal !== undefined && (
         <UserModal user={userModal} me={me} onClose={() => setUserModal(undefined)}
           onSaved={() => { setUserModal(undefined); load(); }} />
+      )}
+      {partnerModal !== undefined && (
+        <PartnerModal partner={partnerModal} onClose={() => setPartnerModal(undefined)}
+          onSaved={() => { setPartnerModal(undefined); load(); }} />
       )}
     </>
   );
