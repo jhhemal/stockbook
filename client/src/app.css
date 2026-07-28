@@ -397,6 +397,18 @@ input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);ou
 .obar .blue{background:#2563EB}
 .obar .green{background:#16A34A}
 .fulfill-meta{display:flex;flex-direction:column;gap:3px;font-size:14px;margin-bottom:14px}
+.line-editor{border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:9px;background:var(--bg)}
+.line-editor-top{display:flex;align-items:center;gap:8px}
+.line-editor-top .select-wrap{flex:1}
+.line-fixed-name{flex:1;font-weight:700;font-size:14px;padding:10px 2px}
+.line-qty{width:72px!important;flex-shrink:0;padding:10px 10px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface)}
+.line-newprod{display:flex;gap:8px;margin-top:8px}
+.line-newprod input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface)}
+.line-editor-bottom{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.seg-sm{padding:5px 10px;font-size:12.5px}
+.battery-select{margin-left:auto;min-width:120px}
+.battery-select select{padding:7px 26px 7px 10px;font-size:13px;border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface);width:100%;appearance:none;-webkit-appearance:none}
+.order-status-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
 
 /* ============================================================
    MODAL + TOAST

@@ -1,11 +1,214 @@
-import { Modal } from '../ui';
+import { useState } from 'react';
+import { api } from '../api';
+import { Icon, Modal, useToast } from '../ui';
 
-export default function OrderModal({ onClose }) {
+const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const NEW_PRODUCT = '__new';
+
+let lineKey = 0;
+const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: '', newStorage: '', grades: [], batteryMin: '', qty: 1 });
+
+export default function OrderModal({ order, me, partners, products, grades, onClose, onSaved, onProductsChanged }) {
+  const isNew = !order;
+  const toast = useToast();
+  const [clientName, setClientName] = useState(order?.clientName || '');
+  const [partnerId, setPartnerId] = useState(order?.partnerId || partners[0]?.id || '');
+  const [isRush, setIsRush] = useState(order?.isRush || false);
+  const [shipMode, setShipMode] = useState(order?.shipByType || 'none'); // none | date | day
+  const [shipDate, setShipDate] = useState(order?.shipByType === 'date' ? order.shipByValue : '');
+  const [shipDay, setShipDay] = useState(order?.shipByType === 'day' ? order.shipByValue : 'Friday');
+  const [lines, setLines] = useState(() =>
+    order
+      ? order.lines.map(l => ({
+          key: ++lineKey, id: l.id, productId: l.productId || '', productName: l.productName,
+          newModel: '', newStorage: '', grades: [...l.grades], batteryMin: l.batteryMin || '', qty: l.qtyOrdered,
+        }))
+      : [blankLine()]);
+  const [removedIds, setRemovedIds] = useState([]);
+  const [busy, setBusy] = useState(false);
+
+  const setLine = (key, patch) => setLines(ls => ls.map(l => (l.key === key ? { ...l, ...patch } : l)));
+  const removeLine = line => {
+    if (line.id) setRemovedIds(ids => [...ids, line.id]);
+    setLines(ls => ls.filter(l => l.key !== line.key));
+  };
+  const toggleGrade = (line, name) =>
+    setLine(line.key, { grades: line.grades.includes(name) ? line.grades.filter(g => g !== name) : [...line.grades, name] });
+
+  const shipBody = () => ({
+    shipByType: shipMode === 'none' ? null : shipMode,
+    shipByValue: shipMode === 'date' ? shipDate : shipMode === 'day' ? shipDay : null,
+  });
+
+  /* resolve a line's productId, creating the product first for quick-add lines */
+  const resolveProduct = async line => {
+    if (line.productId !== NEW_PRODUCT) return line.productId;
+    const p = await api.post('/api/products', { model: line.newModel, storage: line.newStorage, counts: {} });
+    await onProductsChanged();
+    return p.id;
+  };
+
+  const save = async () => {
+    if (!clientName.trim()) { toast('Client name is required'); return; }
+    if (!partnerId) { toast('Pick a partner'); return; }
+    if (!lines.length) { toast('Add at least one line'); return; }
+    for (const l of lines) {
+      if (!l.id && !l.productId) { toast('Every line needs a product'); return; }
+      if (l.productId === NEW_PRODUCT && !l.newModel.trim()) { toast('Enter the new product model'); return; }
+      if (!l.qty || l.qty < 1) { toast('Line quantities must be at least 1'); return; }
+    }
+    if (shipMode === 'date' && !shipDate) { toast('Pick a ship-by date'); return; }
+    setBusy(true);
+    try {
+      if (isNew) {
+        const body = {
+          clientName, partner_id: partnerId, isRush, ...shipBody(),
+          lines: [],
+        };
+        for (const l of lines) {
+          body.lines.push({ product_id: await resolveProduct(l), grades: l.grades, battery_min: l.batteryMin || null, qty: l.qty });
+        }
+        await api.post('/api/orders', body);
+        toast('Order created');
+      } else {
+        await api.patch(`/api/orders/${order.id}`, { clientName, partner_id: partnerId, isRush, ...shipBody() });
+        for (const id of removedIds) await api.del(`/api/orders/${order.id}/lines/${id}`);
+        for (const l of lines) {
+          if (l.id) {
+            await api.patch(`/api/orders/${order.id}/lines/${l.id}`,
+              { grades: l.grades, battery_min: l.batteryMin || null, qty_ordered: l.qty });
+          } else {
+            await api.post(`/api/orders/${order.id}/lines`,
+              { product_id: await resolveProduct(l), grades: l.grades, battery_min: l.batteryMin || null, qty: l.qty });
+          }
+        }
+        toast('Saved');
+      }
+      onSaved();
+    } catch (err) { toast(err.message); setBusy(false); }
+  };
+
+  const setStatus = async status => {
+    setBusy(true);
+    try {
+      await api.patch(`/api/orders/${order.id}`, { status });
+      toast(status === 'active' ? 'Order reopened' : `Order ${status}`);
+      onSaved();
+    } catch (err) { toast(err.message); setBusy(false); }
+  };
+
+  const remove = async () => {
+    if (!confirm(`Delete order for ${order.clientName}? This can't be undone.`)) return;
+    setBusy(true);
+    try { await api.del(`/api/orders/${order.id}`); toast('Order deleted'); onSaved(); }
+    catch (err) { toast(err.message); setBusy(false); }
+  };
+
   return (
-    <Modal title="Order" onClose={onClose}>
-      <p style={{ color: 'var(--ink-2)', fontSize: 14 }}>Order form coming in the next task.</p>
+    <Modal title={isNew ? 'New order' : `Edit ${order.clientName}`} onClose={onClose}>
+      <div className="form-grid">
+        <div className="field full">
+          <label>Client name</label>
+          <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="e.g. CV Juan #1" />
+        </div>
+        <div className="field">
+          <label>Partner</label>
+          <div className="select-wrap">
+            <select value={partnerId} onChange={e => setPartnerId(e.target.value)}>
+              {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="field">
+          <label>Rush</label>
+          <div className="toggle-row" style={{ border: 'none', padding: '8px 0 0', margin: 0 }}>
+            <span style={{ fontSize: 13 }}>⚡ Priority order</span>
+            <span className="switch">
+              <input type="checkbox" checked={isRush} onChange={e => setIsRush(e.target.checked)} /><i></i>
+            </span>
+          </div>
+        </div>
+        <div className="field full">
+          <label>Ship by</label>
+          <div className="seg" style={{ marginBottom: 8 }}>
+            {['none', 'date', 'day'].map(m => (
+              <button key={m} type="button" className={`seg-btn ${shipMode === m ? 'selected' : ''}`} onClick={() => setShipMode(m)}>
+                {m === 'none' ? 'None' : m === 'date' ? 'Date' : 'Day'}
+              </button>
+            ))}
+          </div>
+          {shipMode === 'date' && (
+            <input type="date" value={shipDate} onChange={e => setShipDate(e.target.value)} />
+          )}
+          {shipMode === 'day' && (
+            <div className="select-wrap">
+              <select value={shipDay} onChange={e => setShipDay(e.target.value)}>
+                {WEEKDAYS.map(d => <option key={d} value={d}>{d}</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="side-label" style={{ margin: '16px 0 8px' }}>Lines</div>
+      {lines.map(line => (
+        <div className="line-editor" key={line.key}>
+          <div className="line-editor-top">
+            {line.id ? (
+              <div className="line-fixed-name">{line.productName}</div>
+            ) : (
+              <div className="select-wrap" style={{ flex: 1 }}>
+                <select value={line.productId} onChange={e => setLine(line.key, { productId: e.target.value })}>
+                  <option value="">Select product…</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.displayName}</option>)}
+                  <option value={NEW_PRODUCT}>+ New product…</option>
+                </select>
+              </div>
+            )}
+            <input className="line-qty" type="number" min="1" inputMode="numeric" value={line.qty}
+              onChange={e => setLine(line.key, { qty: Math.max(1, parseInt(e.target.value) || 1) })}
+              onFocus={e => e.target.select()} aria-label="Quantity" />
+            <button className="icon-btn danger" type="button" aria-label="Remove line" onClick={() => removeLine(line)}><Icon name="trash" /></button>
+          </div>
+          {line.productId === NEW_PRODUCT && (
+            <div className="line-newprod">
+              <input value={line.newModel} onChange={e => setLine(line.key, { newModel: e.target.value })} placeholder="Model, e.g. 17 Pro" />
+              <input value={line.newStorage} onChange={e => setLine(line.key, { newStorage: e.target.value })} placeholder="Storage (optional)" />
+            </div>
+          )}
+          <div className="line-editor-bottom">
+            <div className="seg">
+              {grades.map(g => (
+                <button key={g.id} type="button" className={`seg-btn seg-sm ${line.grades.includes(g.name) ? 'selected' : ''}`}
+                  aria-pressed={line.grades.includes(g.name)}
+                  onClick={() => toggleGrade(line, g.name)}>{g.name}</button>
+              ))}
+            </div>
+            <div className="select-wrap battery-select">
+              <select value={line.batteryMin} onChange={e => setLine(line.key, { batteryMin: e.target.value })}>
+                <option value="">Battery: any</option>
+                {[80, 85, 90, 95].map(b => <option key={b} value={b}>{b}%+</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
+      ))}
+      <button className="btn btn-ghost btn-sm" type="button" onClick={() => setLines(ls => [...ls, blankLine()])}>
+        <Icon name="plus" /> Add line
+      </button>
+
+      {!isNew && (
+        <div className="order-status-actions">
+          {order.status !== 'completed' && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('completed')}>Mark completed</button>}
+          {order.status === 'active' && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('cancelled')}>Cancel order</button>}
+          {order.status !== 'active' && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('active')}>Reopen</button>}
+          {me?.role === 'admin' && <button className="btn btn-danger btn-sm" disabled={busy} onClick={remove}>Delete</button>}
+        </div>
+      )}
+
       <div className="modal-actions">
-        <button className="btn btn-ghost" onClick={onClose}>Close</button>
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" disabled={busy} onClick={save}>{isNew ? 'Create order' : 'Save'}</button>
       </div>
     </Modal>
   );
