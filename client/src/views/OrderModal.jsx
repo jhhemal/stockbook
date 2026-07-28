@@ -24,7 +24,7 @@ function commonBatteryMin(orderLines) {
   return orderLines.every(l => (l.batteryMin || '') === first) ? first : '';
 }
 
-export default function OrderModal({ order, me, partners, products, grades, onClose, onSaved, onProductsChanged }) {
+export default function OrderModal({ order, me, partners, products, grades, onClose, onSaved, onRefresh, onProductsChanged }) {
   const isNew = !order;
   const toast = useToast();
   const [clientName, setClientName] = useState(order?.clientName || '');
@@ -116,25 +116,41 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
         toast('Order created');
       } else {
         await api.patch(`/api/orders/${order.id}`, { clientName, partner_id: partnerId, isRush, ...shipBody() });
+
+        // Each line is its own request; one failing (e.g. a transient network
+        // blip) shouldn't stop the rest from saving or leave the Orders list
+        // showing stale pre-edit data for the ones that did go through.
+        const errors = [];
         for (const id of removedIds) {
-          await api.del(`/api/orders/${order.id}/lines/${id}`);
-          setRemovedIds(ids => ids.filter(x => x !== id));
+          try {
+            await api.del(`/api/orders/${order.id}/lines/${id}`);
+            setRemovedIds(ids => ids.filter(x => x !== id));
+          } catch (err) { errors.push(err.message); }
         }
         for (const l of lines) {
-          if (l.id) {
-            await api.patch(`/api/orders/${order.id}/lines/${l.id}`,
-              { grades: gradeNames, battery_min: batteryMin || null, qty_ordered: l.qty });
-          } else {
-            const updated = await api.post(`/api/orders/${order.id}/lines`,
-              { product_id: await resolveProduct(l), grades: gradeNames, battery_min: batteryMin || null, qty: l.qty });
-            const created = updated.lines[updated.lines.length - 1];
-            if (created) setLine(l.key, { id: created.id, productName: created.productName });
-          }
+          try {
+            if (l.id) {
+              await api.patch(`/api/orders/${order.id}/lines/${l.id}`,
+                { grades: gradeNames, battery_min: batteryMin || null, qty_ordered: l.qty });
+            } else {
+              const updated = await api.post(`/api/orders/${order.id}/lines`,
+                { product_id: await resolveProduct(l), grades: gradeNames, battery_min: batteryMin || null, qty: l.qty });
+              const created = updated.lines[updated.lines.length - 1];
+              if (created) setLine(l.key, { id: created.id, productName: created.productName });
+            }
+          } catch (err) { errors.push(err.message); }
+        }
+
+        if (errors.length) {
+          toast(errors[0] + (errors.length > 1 ? ` (+${errors.length - 1} more failed)` : ''));
+          onRefresh?.();
+          setBusy(false);
+          return;
         }
         toast('Saved');
       }
       onSaved();
-    } catch (err) { toast(err.message); setBusy(false); }
+    } catch (err) { toast(err.message); setBusy(false); onRefresh?.(); }
   };
 
   const setStatus = async status => {

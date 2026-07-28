@@ -34,6 +34,7 @@ function lineLabel(line) {
 function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
   const toast = useToast();
   const remaining = line.qtyOrdered - line.qtyFulfilled;
+  const [qtyOrdered, setQtyOrdered] = useState(line.qtyOrdered);
   const [qty, setQty] = useState(remaining > 0 ? remaining : 0);
   const [busy, setBusy] = useState(false);
 
@@ -45,10 +46,16 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
     : null;
 
   const save = async () => {
-    if (!qty) { toast('Enter a quantity'); return; }
+    if (!qtyOrdered || qtyOrdered < 1) { toast('Quantity needed must be at least 1'); return; }
+    if (!qty && qtyOrdered === line.qtyOrdered) { toast('Nothing changed'); return; }
     setBusy(true);
     try {
-      await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, { qty });
+      if (qtyOrdered !== line.qtyOrdered) {
+        await api.patch(`/api/orders/${order.id}/lines/${line.id}`, { qty_ordered: qtyOrdered });
+      }
+      if (qty) {
+        await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, { qty });
+      }
       toast('Updated');
       onSaved();
     } catch (err) { toast(err.message); setBusy(false); }
@@ -59,6 +66,12 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
       <div className="fulfill-meta">
         <span><b>{line.qtyFulfilled}</b> of <b>{line.qtyOrdered}</b> supplied</span>
         {stockHint && <span className="row-sub">In stock: {stockHint}</span>}
+      </div>
+      <div className="field">
+        <label>Quantity needed</label>
+        <input type="number" min="1" inputMode="numeric" value={qtyOrdered}
+          onChange={e => setQtyOrdered(Math.max(1, parseInt(e.target.value) || 1))}
+          onFocus={e => e.target.select()} />
       </div>
       <div className="field">
         <label>Units to add (negative to correct)</label>
@@ -196,6 +209,7 @@ export default function Orders({ me }) {
         <OrderModal order={editing} me={me} partners={partners} products={products} grades={grades}
           onClose={() => setEditing(undefined)}
           onSaved={() => { setEditing(undefined); loadOrders(); }}
+          onRefresh={loadOrders}
           onProductsChanged={async () => setProducts(await api.get('/api/products'))} />
       )}
       {fulfilling && (
