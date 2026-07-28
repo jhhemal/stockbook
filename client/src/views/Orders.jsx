@@ -28,7 +28,6 @@ function lineLabel(line) {
   let s = line.productName;
   if (line.grades.length) s += ' · ' + line.grades.join('/');
   if (line.batteryMin) s += ` · ${line.batteryMin}+`;
-  if (line.note) s += ` · ${line.note}`;
   return s;
 }
 
@@ -70,6 +69,7 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
       <div className="fulfill-meta">
         <span><b>{line.qtyFulfilled}</b> of <b>{line.qtyOrdered}</b> supplied</span>
         {stockHint && <span className="row-sub">In stock: {stockHint}</span>}
+        {line.note && <span className="note-badge" style={{ marginLeft: 0 }}>{line.note}</span>}
       </div>
       <div className="field">
         <label>Quantity needed</label>
@@ -198,7 +198,10 @@ export default function Orders({ me }) {
                   disabled={!clickable}
                   onClick={() => clickable && setFulfilling({ order: o, line: l })}>
                   <div className="ol-row">
-                    <span className="ol-name">{lineLabel(l)}</span>
+                    <span className="ol-name">
+                      {lineLabel(l)}
+                      {l.note && <span className="note-badge">{l.note}</span>}
+                    </span>
                     <span className="ol-qty">{l.qtyFulfilled}/{l.qtyOrdered}{done ? ' ✓' : ''}</span>
                   </div>
                   <div className="obar">
