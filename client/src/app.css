@@ -180,13 +180,18 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 .empty b{display:block;font-size:16px;color:var(--ink);margin-bottom:5px}
 .empty p{font-size:13.5px}
 .loading{
+  position:fixed;inset:0;z-index:50;background:var(--bg);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;
-  text-align:center;padding:20px;color:var(--ink-3);min-height:100%;
+  text-align:center;color:var(--ink-3);
   animation:fadeIn .3s ease;
 }
-.loading span{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.loading span{
+  font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-2);
+  animation:pulse 1.4s ease-in-out infinite;
+}
 .loading-gear{width:30px;height:30px;color:var(--accent);animation:spin 1.1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:.5}50%{opacity:1}}
 
 /* ============================================================
    STOCK

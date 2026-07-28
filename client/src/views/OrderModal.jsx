@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon, Modal, Select, useToast } from '../ui';
 import { parseOrderText, matchProduct } from '../orderParse';
@@ -46,6 +46,21 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   const [busy, setBusy] = useState(false);
   const [showPaste, setShowPaste] = useState(false);
   const [pasteText, setPasteText] = useState('');
+
+  // Nothing is sent to the server until Save — closing (Cancel, clicking
+  // outside, Escape) while dirty silently discards edits, including removed
+  // lines, which look gone from the form but never actually get deleted.
+  const [dirty, setDirty] = useState(false);
+  const mounted = useRef(false);
+  useEffect(() => {
+    if (mounted.current) setDirty(true);
+    else mounted.current = true;
+  }, [clientName, partnerId, isRush, gradeNames, batteryMin, shipMode, shipDate, shipDay, lines, removedIds]);
+
+  const requestClose = () => {
+    if (dirty && !confirm('Discard unsaved changes?')) return;
+    onClose();
+  };
 
   const setLine = (key, patch) => setLines(ls => ls.map(l => (l.key === key ? { ...l, ...patch } : l)));
   const removeLine = line => {
@@ -170,7 +185,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   };
 
   return (
-    <Modal title={isNew ? 'New order' : `Edit ${order.clientName}`} onClose={onClose}>
+    <Modal title={isNew ? 'New order' : `Edit ${order.clientName}`} onClose={requestClose}>
       {isNew && (
         <div style={{ marginBottom: 16 }}>
           <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPaste(s => !s)}>
@@ -282,7 +297,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
       )}
 
       <div className="modal-actions">
-        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
         <button className="btn btn-primary" disabled={busy} onClick={save}>{isNew ? 'Create order' : 'Save'}</button>
       </div>
     </Modal>
