@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { Icon, Modal, useToast } from '../ui';
+import { Icon, Loading, Modal, useToast } from '../ui';
 import OrderModal from './OrderModal';
 
 const WEEKDAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
@@ -118,7 +118,7 @@ export default function Orders({ me }) {
     setPartnerFilter(next); setOrders(null); loadOrders(tab, next);
   };
 
-  if (!orders) return <div className="loading">Loading…</div>;
+  if (!orders) return <Loading />;
 
   const unitsNeeded = orders.reduce((n, o) =>
     n + (o.status === 'active' ? o.lines.reduce((m, l) => m + Math.max(0, l.qtyOrdered - l.qtyFulfilled), 0) : 0), 0);

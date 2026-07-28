@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getToken, setToken } from './api';
-import { Icon, ToastProvider } from './ui';
+import { Icon, Loading, ToastProvider } from './ui';
 import Orders from './views/Orders';
 import Stock from './views/Stock';
 import Sales from './views/Sales';
@@ -82,7 +82,7 @@ export default function App() {
 
   const logout = () => { setToken(null); setUser(null); };
 
-  if (booting) return <div className="loading" style={{ paddingTop: 120 }}>Loading…</div>;
+  if (booting) return <Loading style={{ paddingTop: 120 }} />;
   if (!user) return <Login onLogin={setUser} />;
 
   const views = {

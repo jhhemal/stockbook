@@ -21,27 +21,37 @@ const paths = {
   back: '<path d="m15 18-6-6 6-6"/>',
 };
 
-export function Icon({ name, size }) {
+export function Icon({ name, size, className }) {
   if (name === 'wa') {
     return (
-      <svg viewBox="0 0 24 24" fill="currentColor" style={size ? { width: size, height: size } : undefined}>
+      <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={size ? { width: size, height: size } : undefined}>
         <path d="M17.5 14.4c-.3-.15-1.76-.87-2.03-.97-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.07-.15-.67-1.62-.92-2.22-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.5 0 1.47 1.07 2.9 1.22 3.1.15.2 2.1 3.2 5.1 4.49.71.31 1.27.49 1.7.63.72.23 1.37.2 1.88.12.57-.09 1.76-.72 2.01-1.42.25-.7.25-1.3.17-1.42-.07-.12-.27-.2-.57-.35M12.05 21.79h-.01a9.8 9.8 0 0 1-4.98-1.36l-.36-.21-3.7.97.99-3.61-.24-.37a9.77 9.77 0 0 1-1.5-5.21c0-5.4 4.4-9.79 9.81-9.79a9.74 9.74 0 0 1 6.93 2.87 9.73 9.73 0 0 1 2.87 6.93c0 5.4-4.4 9.79-9.8 9.79m8.34-18.13A11.7 11.7 0 0 0 12.05.21C5.55.21.26 5.5.26 12c0 2.08.54 4.1 1.57 5.89L.16 24l6.25-1.64a11.78 11.78 0 0 0 5.63 1.43h.01c6.5 0 11.79-5.29 11.79-11.79 0-3.15-1.23-6.11-3.46-8.34" />
       </svg>
     );
   }
   if (name === 'grip') {
     return (
-      <svg viewBox="0 0 24 24" fill="currentColor" style={size ? { width: size, height: size } : undefined}
+      <svg viewBox="0 0 24 24" fill="currentColor" className={className} style={size ? { width: size, height: size } : undefined}
         dangerouslySetInnerHTML={{ __html: paths[name] }} />
     );
   }
   return (
     <svg
       viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-      strokeLinecap="round" strokeLinejoin="round"
+      strokeLinecap="round" strokeLinejoin="round" className={className}
       style={size ? { width: size, height: size } : undefined}
       dangerouslySetInnerHTML={{ __html: paths[name] || '' }}
     />
+  );
+}
+
+/* ---------- shared loading state (gear spinner + label) ---------- */
+export function Loading({ label = 'Loading…', style }) {
+  return (
+    <div className="loading" style={style}>
+      <Icon name="settings" className="loading-gear" />
+      <span>{label}</span>
+    </div>
   );
 }
 

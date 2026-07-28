@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { Icon, useToast } from '../ui';
+import { Icon, Loading, useToast } from '../ui';
 
 export default function Reorder({ onBack }) {
   const toast = useToast();
@@ -69,7 +69,7 @@ export default function Reorder({ onBack }) {
         </div>
       </div>
 
-      {items === null ? <div className="loading">Loading…</div> : (
+      {items === null ? <Loading /> : (
         <div className="reorder-list">
           {items.map((p, idx) => (
             <div className={`reorder-row ${dragIdx === idx ? 'dragging' : ''}`} key={p.id} data-ridx={idx}>

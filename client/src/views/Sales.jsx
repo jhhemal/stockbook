@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { Icon, gradeClass, gradeClassByName, useToast } from '../ui';
+import { Icon, Loading, gradeClass, gradeClassByName, useToast } from '../ui';
 
 export default function Sales() {
   const toast = useToast();
@@ -20,7 +20,7 @@ export default function Sales() {
   };
   useEffect(() => { load(); }, []);
 
-  if (!products) return <div className="loading">Loading…</div>;
+  if (!products) return <Loading />;
 
   const prod = products.find(p => p.id === sel.productId);
   const grade = grades.find(g => g.id === sel.gradeId);

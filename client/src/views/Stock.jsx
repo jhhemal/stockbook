@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getStickyAdd } from '../api';
-import { Icon, Modal, gradeClass, useToast } from '../ui';
+import { Icon, Loading, Modal, gradeClass, useToast } from '../ui';
 
 function ProductModal({ product, grades, onClose, onSaved }) {
   const isNew = !product;
@@ -95,7 +95,7 @@ export default function Stock({ onReorder }) {
     } catch (err) { toast(err.message); }
   };
 
-  if (!products) return <div className="loading">Loading…</div>;
+  if (!products) return <Loading />;
 
   const q = search.trim().toLowerCase();
   const items = products.filter(p => !q || p.displayName.toLowerCase().includes(q));
