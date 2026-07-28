@@ -34,7 +34,7 @@ function lineLabel(line) {
 function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
   const toast = useToast();
   const [qtyOrdered, setQtyOrdered] = useState(line.qtyOrdered);
-  const [qty, setQty] = useState(0);
+  const [qtyFulfilled, setQtyFulfilled] = useState(line.qtyFulfilled);
   const [busy, setBusy] = useState(false);
 
   const product = products.find(p => p.id === line.productId);
@@ -46,14 +46,15 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
 
   const save = async () => {
     if (!qtyOrdered || qtyOrdered < 1) { toast('Quantity needed must be at least 1'); return; }
-    if (!qty && qtyOrdered === line.qtyOrdered) { onClose(); return; }
+    const delta = qtyFulfilled - line.qtyFulfilled;
+    if (!delta && qtyOrdered === line.qtyOrdered) { onClose(); return; }
     setBusy(true);
     try {
       if (qtyOrdered !== line.qtyOrdered) {
         await api.patch(`/api/orders/${order.id}/lines/${line.id}`, { qty_ordered: qtyOrdered });
       }
-      if (qty) {
-        await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, { qty });
+      if (delta) {
+        await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, { qty: delta });
       }
       toast('Updated');
       onSaved();
@@ -77,13 +78,13 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
         </div>
       </div>
       <div className="field">
-        <label>Units needed now</label>
+        <label>Units supplied</label>
         <div className="stepper">
-          <button type="button" className="step-btn" onClick={() => setQty(q => Math.max(0, q - 1))}>−</button>
-          <input type="number" min="0" inputMode="numeric" value={qty}
-            onChange={e => setQty(Math.max(0, parseInt(e.target.value) || 0))}
+          <button type="button" className="step-btn" onClick={() => setQtyFulfilled(q => Math.max(0, q - 1))}>−</button>
+          <input type="number" min="0" inputMode="numeric" value={qtyFulfilled}
+            onChange={e => setQtyFulfilled(Math.max(0, parseInt(e.target.value) || 0))}
             onFocus={e => e.target.select()} />
-          <button type="button" className="step-btn" onClick={() => setQty(q => q + 1)}>+</button>
+          <button type="button" className="step-btn" onClick={() => setQtyFulfilled(q => Math.min(qtyOrdered, q + 1))}>+</button>
         </div>
       </div>
       <div className="modal-actions">
