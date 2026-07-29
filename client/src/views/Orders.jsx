@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { Icon, Loading, Modal, useRefetchOnFocus, useToast } from '../ui';
+import { copyText, Icon, Loading, Modal, useRefetchOnFocus, useToast } from '../ui';
 import OrderModal from './OrderModal';
 
 const WEEKDAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
@@ -24,11 +24,38 @@ function barClass(line) {
   return 'red';
 }
 
+function orderProgress(order) {
+  const ordered = order.lines.reduce((n, l) => n + l.qtyOrdered, 0);
+  const fulfilled = order.lines.reduce((n, l) => n + l.qtyFulfilled, 0);
+  const p = ordered ? fulfilled / ordered : 0;
+  return { ordered, fulfilled, cls: p >= 1 ? 'green' : p >= 1 / 3 ? 'blue' : 'red' };
+}
+
 function lineLabel(line) {
   let s = line.productName;
   if (line.grades.length) s += ' · ' + line.grades.join('/');
   if (line.batteryMin) s += ` · ${line.batteryMin}+`;
   return s;
+}
+
+/* WhatsApp-ready status update for one order — what's been supplied so far
+ * and what's still owed, so it can be sent whenever the client asks. */
+function orderReportText(order) {
+  const lines = [`${order.clientName} — via ${order.partnerName}`, ''];
+  for (const l of order.lines) {
+    const remaining = Math.max(0, l.qtyOrdered - l.qtyFulfilled);
+    lines.push(lineLabel(l));
+    lines.push(remaining > 0
+      ? `${l.qtyFulfilled}/${l.qtyOrdered} supplied, ${remaining} needed`
+      : `${l.qtyFulfilled}/${l.qtyOrdered} ✓ done`);
+    lines.push('');
+  }
+  const { fulfilled, ordered } = orderProgress(order);
+  const remaining = Math.max(0, ordered - fulfilled);
+  lines.push(remaining > 0
+    ? `Total: ${fulfilled}/${ordered} supplied, ${remaining} still needed`
+    : `Total: ${fulfilled}/${ordered} — all supplied ✓`);
+  return lines.join('\n').trim();
 }
 
 function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
@@ -145,6 +172,11 @@ export default function Orders({ me }) {
   // catch up whenever the tab/app regains focus rather than showing stale data.
   useRefetchOnFocus(() => loadOrders());
 
+  const copyOrderReport = async o => {
+    const ok = await copyText(orderReportText(o));
+    toast(ok ? 'Update copied — paste in WhatsApp' : 'Copy failed — select the text manually');
+  };
+
   const switchTab = t => { setTab(t); setOrders(null); loadOrders(t, partnerFilter); };
   const switchPartner = id => {
     const next = partnerFilter === id ? '' : id;
@@ -182,12 +214,16 @@ export default function Orders({ me }) {
       </div>
 
       <div className="orders-grid">
-        {orders.length ? orders.map(o => (
+        {orders.length ? orders.map(o => {
+          const prog = orderProgress(o);
+          return (
           <div className="order-card" key={o.id} style={{ borderLeftColor: o.partnerColor }}>
             <div className="order-head">
               <div className="order-client">{o.clientName}</div>
+              <span className={`order-progress ${prog.cls}`} title="Units supplied / ordered">{prog.fulfilled}/{prog.ordered}</span>
               {o.isRush && <span className="rush-pill"><Icon name="bolt" size={11} /> Rush</span>}
               {o.status === 'cancelled' && <span className="pill off">cancelled</span>}
+              <button className="edit-dot" aria-label="Copy WhatsApp update" onClick={() => copyOrderReport(o)}><Icon name="wa" /></button>
               <button className="edit-dot" aria-label="Edit order" onClick={() => setEditing(o)}><Icon name="dots" /></button>
             </div>
             <div className="order-sub">
@@ -215,7 +251,8 @@ export default function Orders({ me }) {
               );
             })}
           </div>
-        )) : loadError ? (
+          );
+        }) : loadError ? (
           <div className="empty" style={{ gridColumn: '1/-1' }}>
             <b>Couldn't load orders</b>
             <p><button className="btn btn-ghost btn-sm" onClick={() => { setOrders(null); setLoadError(false); loadOrders(); }}>Retry</button></p>
