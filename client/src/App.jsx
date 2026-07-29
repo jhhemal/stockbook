@@ -58,6 +58,7 @@ function Login({ onLogin }) {
         {error && <div className="login-error">{error}</div>}
         <button className="btn btn-primary btn-block" disabled={busy} onClick={submit}>Sign in</button>
       </div>
+      <div className="credit">Developed by hashtrik.</div>
     </div>
   );
 }
@@ -111,6 +112,7 @@ export default function App() {
           <div className="sidebar-foot">
             <div className="whoami">{user.username} · {user.role}</div>
             <button className="link-btn" onClick={logout}>Sign out</button>
+            <div className="credit">Developed by hashtrik.</div>
           </div>
         </aside>
         <main className="main">
@@ -123,6 +125,8 @@ export default function App() {
           </div>
           {/* key forces a fresh mount (and data load) when switching tabs */}
           <div key={view}>{views[view]}</div>
+          {/* the sidebar carries the credit on desktop, so this one is mobile-only */}
+          <div className="credit main-credit">Developed by hashtrik.</div>
         </main>
       </div>
       <nav className="tabbar">
