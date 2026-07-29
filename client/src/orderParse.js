@@ -2,12 +2,18 @@
  * prefix ("2-13 pro 128"), a suffix ("14 x2" / "14PM 256 1x"), a count in
  * parens ("iPhone 13 Pro 256gb (3)"), or a bare trailing number. Lines with
  * no recognizable quantity at all (footers like "Total 16 pcs", "*banner*"
- * text) are skipped rather than turned into a bogus item. If the first line
+ * text) are skipped rather than turned into a bogus item. A line with no
+ * storage size falls back to 128. If the first line
  * isn't itself an item, it's checked for a trailing grade (e.g. "A-") that
  * then applies to every line below — client name is never guessed from it,
  * since plenty of messages don't include one.
  */
 const STORAGE_SIZES = new Set([16, 32, 64, 128, 256, 512, 1024]);
+
+/* Lines often leave the size off entirely ("2-13 pro"). 128 is far and away
+ * the most common size ordered, so it's assumed rather than left blank —
+ * a blank storage matches no product at all and stalls the row. */
+const DEFAULT_STORAGE = '128';
 
 const COLOR_WORDS = new Set([
   'pink', 'black', 'white', 'gold', 'silver', 'blue', 'red', 'green', 'purple',
@@ -38,7 +44,7 @@ function stripEmoji(s) {
 function mergeStorageUnit(tokens) {
   const out = [];
   for (let i = 0; i < tokens.length; i++) {
-    if (i < tokens.length - 1 && /^\d{2,4}$/.test(tokens[i]) && /^(gb|tb)$/i.test(tokens[i + 1])) {
+    if (i < tokens.length - 1 && /^\d{1,4}$/.test(tokens[i]) && /^(gb|tb)$/i.test(tokens[i + 1])) {
       out.push(tokens[i] + tokens[i + 1].toLowerCase());
       i++;
     } else {
@@ -53,7 +59,7 @@ function mergeStorageUnit(tokens) {
  * very first word (which is almost always the phone generation, e.g. "15"). */
 function extractStorage(tokens) {
   for (let i = tokens.length - 1; i >= 0; i--) {
-    const m = tokens[i].match(/^(\d{2,4})(gb|tb)$/i);
+    const m = tokens[i].match(/^(\d{1,4})(gb|tb)$/i); // 1 digit matters for "1tb"
     if (m) {
       let val = parseInt(m[1], 10);
       if (m[2].toLowerCase() === 'tb') val *= 1024;
@@ -149,7 +155,7 @@ export function parseOrderText(text, grades) {
     const { storage, rest } = extractStorage(tokens);
     if (!rest.length) continue;
     const model = titleCase(rest.join(' ')).replace(/\bPm\b/g, 'PM');
-    items.push({ model, storage, qty, note });
+    items.push({ model, storage: storage || DEFAULT_STORAGE, qty, note });
   }
 
   return { clientName: '', gradeName, items };
