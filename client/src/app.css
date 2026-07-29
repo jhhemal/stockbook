@@ -74,10 +74,29 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 .nav-btn svg{width:19px;height:19px;flex-shrink:0}
 .nav-btn:hover{background:var(--bg)}
 .nav-btn.active{background:var(--accent-soft);color:var(--accent-ink)}
-.sidebar-foot{margin-top:auto;padding:10px 12px;font-size:12.5px;color:var(--ink-3)}
-.whoami{font-weight:600;color:var(--ink-2);margin-bottom:5px}
-.link-btn{color:var(--ink-3);font-size:12.5px;font-weight:600;text-decoration:underline;padding:2px 0}
-.link-btn:hover{color:var(--danger)}
+.sidebar-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--line)}
+.account{display:flex;align-items:center;gap:9px;padding:2px 4px 2px 6px}
+.avatar{
+  width:30px;height:30px;flex-shrink:0;border-radius:50%;
+  background:var(--accent-soft);color:var(--accent-ink);
+  display:grid;place-items:center;font-weight:700;font-size:12.5px;
+}
+.account-id{flex:1;min-width:0}
+.account-name{
+  font-size:13px;font-weight:600;color:var(--ink);text-transform:capitalize;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.account-role{
+  font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);margin-top:1px;
+}
+.signout-btn{
+  width:30px;height:30px;flex-shrink:0;border-radius:9px;
+  display:grid;place-items:center;color:var(--ink-3);
+  transition:background .12s,color .12s;
+}
+.signout-btn svg{width:17px;height:17px}
+.signout-btn:hover{background:var(--danger-soft);color:var(--danger)}
 .credit{font-size:11.5px;color:var(--ink-3)}
 .login-screen .credit{margin-top:18px;text-align:center}
 .credit-inline{display:none}
@@ -102,6 +121,7 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
     margin:-14px -14px 12px;border-bottom:1px solid var(--line);
   }
   .mobile-head .brand{padding:0}
+  .mobile-head .signout-btn{margin-right:-6px}
   .credit-fixed{display:none}
   .credit-inline{display:block;text-align:center;margin-top:26px}
   .tabbar{

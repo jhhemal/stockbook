@@ -110,8 +110,16 @@ export default function App() {
             </button>
           ))}
           <div className="sidebar-foot">
-            <div className="whoami">{user.username} · {user.role}</div>
-            <button className="link-btn" onClick={logout}>Sign out</button>
+            <div className="account">
+              <div className="avatar">{user.username.slice(0, 1).toUpperCase()}</div>
+              <div className="account-id">
+                <div className="account-name">{user.username}</div>
+                <div className="account-role">{user.role}</div>
+              </div>
+              <button className="signout-btn" onClick={logout} title="Sign out" aria-label="Sign out">
+                <Icon name="logout" />
+              </button>
+            </div>
           </div>
         </aside>
         <main className="main">
@@ -120,7 +128,9 @@ export default function App() {
               <div className="brand-mark">S</div>
               <div className="brand-name">StockBook</div>
             </div>
-            <button className="link-btn" onClick={logout}>Sign out</button>
+            <button className="signout-btn" onClick={logout} title="Sign out" aria-label="Sign out">
+              <Icon name="logout" />
+            </button>
           </div>
           {/* key forces a fresh mount (and data load) when switching tabs */}
           <div key={view}>{views[view]}</div>
