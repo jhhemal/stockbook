@@ -46,6 +46,24 @@ export function Icon({ name, size, className }) {
   );
 }
 
+/* ---------- re-fetch when the tab/app regains focus, so data edited on
+ * another device shows up without the user having to manually reload
+ * (the app has no live sync — this is the cheap approximation) ---------- */
+export function useRefetchOnFocus(refetch) {
+  const ref = useRef(refetch);
+  useEffect(() => { ref.current = refetch; });
+  useEffect(() => {
+    const onFocus = () => ref.current();
+    const onVisible = () => { if (document.visibilityState === 'visible') ref.current(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
+}
+
 /* ---------- shared loading state (gear spinner + label) ---------- */
 export function Loading({ label = 'Loading' }) {
   return (

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { Icon, Loading, Modal, useToast } from '../ui';
+import { Icon, Loading, Modal, useRefetchOnFocus, useToast } from '../ui';
 import OrderModal from './OrderModal';
 
 const WEEKDAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
@@ -140,6 +140,10 @@ export default function Orders({ me }) {
       } catch (err) { toast(err.message); }
     })();
   }, []);
+
+  // Another device may have changed an order since this screen loaded —
+  // catch up whenever the tab/app regains focus rather than showing stale data.
+  useRefetchOnFocus(() => loadOrders());
 
   const switchTab = t => { setTab(t); setOrders(null); loadOrders(t, partnerFilter); };
   const switchPartner = id => {
