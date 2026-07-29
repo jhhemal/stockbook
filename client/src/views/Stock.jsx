@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api, getStickyAdd } from '../api';
-import { Icon, Loading, Modal, gradeClass, useToast } from '../ui';
+import { Icon, Loading, Modal, gradeClass, useConfirm, useToast } from '../ui';
 
 function ProductModal({ product, grades, onClose, onSaved }) {
   const isNew = !product;
   const toast = useToast();
+  const confirm = useConfirm();
   const [model, setModel] = useState(product?.model || '');
   const [storage, setStorage] = useState(product?.storage || '');
   const [counts, setCounts] = useState(() =>
@@ -33,7 +34,10 @@ function ProductModal({ product, grades, onClose, onSaved }) {
   };
 
   const remove = async () => {
-    if (!confirm(`Delete ${product.displayName}? This can't be undone.`)) return;
+    if (!await confirm({
+      title: 'Delete product?',
+      message: `${product.displayName} will be permanently removed. This can't be undone.`,
+    })) return;
     setBusy(true);
     try {
       await api.del(`/api/products/${product.id}`);

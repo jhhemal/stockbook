@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api';
-import { Icon, Loading, gradeClass, gradeClassByName, useToast } from '../ui';
+import { Icon, Loading, gradeClass, gradeClassByName, useConfirm, useToast } from '../ui';
 
 export default function Sales() {
   const toast = useToast();
+  const confirm = useConfirm();
   const [products, setProducts] = useState(null);
   const [grades, setGrades] = useState([]);
   const [sales, setSales] = useState([]);
@@ -40,7 +41,10 @@ export default function Sales() {
   };
 
   const remove = async id => {
-    if (!confirm('Delete this sale and return units to stock?')) return;
+    if (!await confirm({
+      title: 'Delete sale?',
+      message: 'The sold units will be returned to stock.',
+    })) return;
     try {
       await api.del(`/api/sales/${id}`);
       await load();

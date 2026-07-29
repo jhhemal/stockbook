@@ -541,6 +541,11 @@ textarea{
 .modal-actions{display:flex;gap:9px;margin-top:18px}
 .modal-actions .btn{flex:1}
 
+/* a confirm can open on top of another modal, so it needs to sit above it */
+.overlay-top{z-index:70}
+.confirm-msg{font-size:14px;color:var(--ink-2);line-height:1.5;margin-top:-4px}
+.confirm-msg strong{color:var(--ink);font-weight:600}
+
 .toast{
   position:fixed;left:50%;transform:translateX(-50%);
   bottom:calc(90px + var(--sab));z-index:80;

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { Icon, Modal, Select, useToast } from '../ui';
+import { Icon, Modal, Select, useConfirm, useToast } from '../ui';
 import { parseOrderText, matchProduct } from '../orderParse';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -27,6 +27,7 @@ function commonBatteryMin(orderLines) {
 export default function OrderModal({ order, me, partners, products, grades, onClose, onSaved, onRefresh, onProductsChanged }) {
   const isNew = !order;
   const toast = useToast();
+  const confirm = useConfirm();
   const [clientName, setClientName] = useState(order?.clientName || '');
   const [partnerId, setPartnerId] = useState(order?.partnerId || partners[0]?.id || '');
   const [isRush, setIsRush] = useState(order?.isRush || false);
@@ -57,8 +58,12 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     else mounted.current = true;
   }, [clientName, partnerId, isRush, gradeNames, batteryMin, shipMode, shipDate, shipDay, lines, removedIds]);
 
-  const requestClose = () => {
-    if (dirty && !confirm('Discard unsaved changes?')) return;
+  const requestClose = async () => {
+    if (dirty && !await confirm({
+      title: 'Discard changes?',
+      message: 'Your unsaved edits to this order will be lost.',
+      confirmLabel: 'Discard',
+    })) return;
     onClose();
   };
 
@@ -179,7 +184,10 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   };
 
   const remove = async () => {
-    if (!confirm(`Delete order for ${order.clientName}? This can't be undone.`)) return;
+    if (!await confirm({
+      title: 'Delete order?',
+      message: `The order for ${order.clientName} will be permanently removed. This can't be undone.`,
+    })) return;
     setBusy(true);
     try { await api.del(`/api/orders/${order.id}`); toast('Order deleted'); onSaved(); }
     catch (err) { toast(err.message); setBusy(false); }

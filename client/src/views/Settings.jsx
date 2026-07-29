@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getStickyAdd, setStickyAdd } from '../api';
-import { Icon, Modal, gradeClass, gradeClassByName, useToast } from '../ui';
+import { Icon, Modal, gradeClass, gradeClassByName, useConfirm, useToast } from '../ui';
 
 function GradeModal({ grade, onClose, onSaved }) {
   const isNew = !grade;
@@ -140,6 +140,7 @@ function UserModal({ user, me, onClose, onSaved }) {
 
 export default function Settings({ me }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const isAdmin = me.role === 'admin';
   const [grades, setGrades] = useState([]);
   const [users, setUsers] = useState([]);
@@ -168,17 +169,17 @@ export default function Settings({ me }) {
   useEffect(() => { load(); }, []);
 
   const deleteGrade = async g => {
-    if (!confirm(`Delete grade '${g.name}'?`)) return;
+    if (!await confirm({ title: 'Delete grade?', message: `Grade '${g.name}' will be removed.` })) return;
     try { await api.del(`/api/grades/${g.id}`); load(); toast('Grade deleted'); }
     catch (err) { toast(err.message); }
   };
   const deletePartner = async p => {
-    if (!confirm(`Delete partner '${p.name}'?`)) return;
+    if (!await confirm({ title: 'Delete partner?', message: `Partner '${p.name}' will be removed.` })) return;
     try { await api.del(`/api/partners/${p.id}`); load(); toast('Partner deleted'); }
     catch (err) { toast(err.message); }
   };
   const deleteUser = async u => {
-    if (!confirm(`Delete user '${u.username}'?`)) return;
+    if (!await confirm({ title: 'Delete user?', message: `User '${u.username}' will lose access immediately.` })) return;
     try { await api.del(`/api/users/${u.id}`); load(); toast('User deleted'); }
     catch (err) { toast(err.message); }
   };

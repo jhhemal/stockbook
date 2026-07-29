@@ -149,20 +149,78 @@ export function ToastProvider({ children }) {
   );
 }
 
-/* ---------- modal ---------- */
-export function Modal({ title, children, onClose }) {
+/* ---------- modal ----------
+ * Every modal listens for Escape on window, so a confirm opened on top of
+ * another modal would close both at once. Modals register in a stack and
+ * only the topmost one reacts. */
+const modalStack = [];
+
+export function Modal({ title, children, onClose, overlayClass = '' }) {
+  const token = useRef({});
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape') onClose(); };
+    const self = token.current;
+    modalStack.push(self);
+    return () => {
+      const i = modalStack.indexOf(self);
+      if (i !== -1) modalStack.splice(i, 1);
+    };
+  }, []);
+  useEffect(() => {
+    const onKey = e => {
+      if (e.key === 'Escape' && modalStack[modalStack.length - 1] === token.current) onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
   return (
-    <div className="overlay" onClick={e => { if (e.target.classList.contains('overlay')) onClose(); }}>
+    <div className={`overlay ${overlayClass}`}
+      onClick={e => { if (e.target.classList.contains('overlay')) onClose(); }}>
       <div className="modal">
         <div className="modal-title">{title}</div>
         {children}
       </div>
     </div>
+  );
+}
+
+/* ---------- confirm ----------
+ * Replaces window.confirm so destructive prompts look like the app rather
+ * than browser chrome. Returns a promise, so call sites keep their shape:
+ *   if (!await confirm({ title, message })) return; */
+const ConfirmCtx = createContext(async () => false);
+export const useConfirm = () => useContext(ConfirmCtx);
+
+export function ConfirmProvider({ children }) {
+  const [req, setReq] = useState(null);
+  const resolver = useRef(null);
+
+  const confirm = useCallback(opts => {
+    setReq({ title: 'Are you sure?', confirmLabel: 'Delete', ...opts });
+    return new Promise(resolve => { resolver.current = resolve; });
+  }, []);
+
+  const settle = answer => {
+    setReq(null);
+    const resolve = resolver.current;
+    resolver.current = null;
+    resolve?.(answer);
+  };
+
+  return (
+    <ConfirmCtx.Provider value={confirm}>
+      {children}
+      {req && (
+        <Modal title={req.title} onClose={() => settle(false)} overlayClass="overlay-top">
+          <div className="confirm-msg">{req.message}</div>
+          <div className="modal-actions">
+            <button type="button" className="btn btn-ghost" onClick={() => settle(false)}>Cancel</button>
+            <button type="button" className="btn btn-danger" autoFocus onClick={() => settle(true)}>
+              {req.confirmLabel}
+            </button>
+          </div>
+        </Modal>
+      )}
+    </ConfirmCtx.Provider>
   );
 }
 
