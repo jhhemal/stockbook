@@ -83,16 +83,23 @@ export function Select({ value, onChange, options, placeholder = 'Select…' }) 
       setOpen(false);
     };
     const close = () => setOpen(false);
+    // Scrolling *inside* the option list fires a (capturing, non-bubbling)
+    // scroll event too — ignore those so the menu doesn't slam shut the
+    // moment you try to scroll through the options, on mouse wheel or touch.
+    const onScroll = e => {
+      if (menuRef.current?.contains(e.target)) return;
+      close();
+    };
     const onKey = e => { if (e.key === 'Escape') close(); };
     document.addEventListener('mousedown', onDown);
     window.addEventListener('keydown', onKey);
     window.addEventListener('resize', close);
-    window.addEventListener('scroll', close, true);
+    window.addEventListener('scroll', onScroll, true);
     return () => {
       document.removeEventListener('mousedown', onDown);
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('resize', close);
-      window.removeEventListener('scroll', close, true);
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
 

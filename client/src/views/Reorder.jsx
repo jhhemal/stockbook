@@ -22,6 +22,13 @@ export default function Reorder({ onBack }) {
     finally { setSaving(false); }
   };
 
+  const sortByName = () => {
+    const sorted = [...items].sort((a, b) =>
+      `${a.model} ${a.storage}`.localeCompare(`${b.model} ${b.storage}`, undefined, { numeric: true, sensitivity: 'base' }));
+    setItems(sorted);
+    persist(sorted);
+  };
+
   const onPointerDown = idx => e => {
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -67,6 +74,7 @@ export default function Reorder({ onBack }) {
           <div className="page-title">Reorder products</div>
           <div className="page-sub">Drag by the handle to set the order shown on Stock and in reports{saving ? ' — saving…' : ''}</div>
         </div>
+        <button className="btn btn-ghost btn-sm" onClick={sortByName} disabled={!items || saving}>Sort by name</button>
       </div>
 
       {items === null ? <Loading /> : (

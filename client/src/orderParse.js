@@ -1,12 +1,16 @@
 /* Parses pasted WhatsApp-style order notes. Quantity can show up as a
- * prefix ("2-13 pro 128"), a suffix ("14 x2" / "14PM 256 1x"), a count in
- * parens ("iPhone 13 Pro 256gb (3)"), or a bare trailing number. Lines with
- * no recognizable quantity at all (footers like "Total 16 pcs", "*banner*"
- * text) are skipped rather than turned into a bogus item. A line with no
- * storage size falls back to 128. If the first line
- * isn't itself an item, it's checked for a trailing grade (e.g. "A-") that
- * then applies to every line below — client name is never guessed from it,
- * since plenty of messages don't include one.
+ * prefix ("2-13 pro 128", "15x 15 pro max 256", "X4 14 pro max 256"), a
+ * suffix ("14 x2" / "14PM 256 1x"), a count in parens ("iPhone 13 Pro
+ * 256gb (3)"), or a bare trailing number. Lines with no recognizable
+ * quantity at all (footers like "Total 16 pcs", "*banner*" text) are
+ * skipped rather than turned into a bogus item. A line with no storage
+ * size falls back to 128. If the first line isn't itself an item, it's
+ * checked for a trailing grade (e.g. "A-") that then applies to every
+ * line below — client name is never guessed from it, since plenty of
+ * messages don't include one. A trailing grade/condition shorthand like
+ * "AB 90+" (grade code + battery floor), or a "grade A and clean A-"
+ * phrase, is pulled into the line's note instead of polluting the model
+ * name.
  */
 const STORAGE_SIZES = new Set([16, 32, 64, 128, 256, 512, 1024]);
 
@@ -83,6 +87,15 @@ function extractQty(line) {
   let m = line.match(/^(\d+)\s*[-–]\s*(.+)$/);
   if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
 
+  // Leading "15x 15 pro max 256" — a bare "Nx" (with a space before the
+  // model) is a quantity prefix, not the trailing "body xN" suffix below.
+  m = line.match(/^(\d+)\s*[x×]\s+(.+)$/i);
+  if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
+
+  // Leading "X4 14 pro max 256" — reversed "xN" prefix.
+  m = line.match(/^[x×]\s*(\d+)\s+(.+)$/i);
+  if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
+
   m = line.match(/^(.+?)\s*[x×]\s*(\d+)\s*$/i);
   if (m) return { qty: parseInt(m[2], 10), body: m[1], trailingNote: '' };
 
@@ -102,6 +115,28 @@ function extractQty(line) {
   }
 
   return null;
+}
+
+/* Trailing grade/condition shorthand like "AB 90+" (grade code + battery
+ * floor) is never part of the model name. Only pulled out when the grade
+ * code is written in ALL CAPS (as this shop's messages do, e.g. "AB") —
+ * that avoids mistaking a real model word like "Pro" for a grade code. */
+function extractCondition(tokens) {
+  const notes = [];
+  let rest = tokens;
+  while (rest.length) {
+    const last = rest[rest.length - 1];
+    if (!/^\d{2,3}\+$/.test(last)) break;
+    const prev = rest[rest.length - 2];
+    if (prev && /^[A-Z]{1,3}$/.test(prev)) {
+      notes.unshift(`${prev} ${last}`);
+      rest = rest.slice(0, -2);
+    } else {
+      notes.unshift(last);
+      rest = rest.slice(0, -1);
+    }
+  }
+  return { rest, note: notes.join(', ') };
 }
 
 /* @param grades - [{name}] from the API, used to recognize a header grade suffix.
@@ -140,6 +175,14 @@ export function parseOrderText(text, grades) {
       if (asideText) note = note ? `${note}, ${asideText}` : asideText;
     }
 
+    // "grade A and clean A-" -> note "Grade: A, A-", stripped from the model text
+    const gradePhrase = body.match(/\bgrade\s+([A-Za-z][+-]?)\s+(?:and\s+)?clean\s+([A-Za-z][+-]?)(?=\s|$)/i);
+    if (gradePhrase) {
+      const gnote = `Grade: ${gradePhrase[1].toUpperCase()}, ${gradePhrase[2].toUpperCase()}`;
+      body = (body.slice(0, gradePhrase.index) + body.slice(gradePhrase.index + gradePhrase[0].length)).trim();
+      note = note ? `${note}, ${gnote}` : gnote;
+    }
+
     body = body.replace(/(\d)(pm)\b/gi, '$1 $2'); // "14PM" -> "14 PM"
     let tokens = body.split(/\s+/).filter(Boolean).filter(t => !IGNORED_WORDS.has(t.toLowerCase()));
     if (!tokens.length) continue;
@@ -152,7 +195,9 @@ export function parseOrderText(text, grades) {
     }
 
     tokens = mergeStorageUnit(tokens);
-    const { storage, rest } = extractStorage(tokens);
+    const { storage, rest: rest0 } = extractStorage(tokens);
+    const { rest, note: condNote } = extractCondition(rest0);
+    if (condNote) note = note ? `${note}, ${condNote}` : condNote;
     if (!rest.length) continue;
     const model = titleCase(rest.join(' ')).replace(/\bPm\b/g, 'PM');
     items.push({ model, storage: storage || DEFAULT_STORAGE, qty, note });

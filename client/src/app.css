@@ -300,8 +300,8 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 }
 .reorder-row.dragging{box-shadow:0 8px 24px rgba(18,22,15,.16);border-color:var(--accent);z-index:5;position:relative}
 .reorder-handle{
-  display:grid;place-items:center;color:var(--ink-3);flex-shrink:0;padding:4px;margin:-4px;
-  touch-action:none;cursor:grab;
+  display:grid;place-items:center;color:var(--ink-3);flex-shrink:0;padding:8px;margin:-8px;
+  touch-action:none;cursor:grab;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;
 }
 .reorder-handle:active{cursor:grabbing;color:var(--accent-ink)}
 .reorder-handle svg{width:20px;height:20px;display:block}
