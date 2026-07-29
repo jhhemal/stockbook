@@ -29,39 +29,74 @@ export default function Reorder({ onBack }) {
     persist(sorted);
   };
 
-  const onPointerDown = idx => e => {
-    e.preventDefault();
-    e.currentTarget.setPointerCapture(e.pointerId);
+  // Shared drag-tracking logic keyed on raw client coordinates, driven by
+  // either Pointer Events (mouse/pen) or native Touch Events (below). Touch
+  // gets its own path rather than relying on PointerEvent's touch support —
+  // some mobile browsers/WebViews (e.g. in-app browsers) implement Pointer
+  // Events unreliably for drags, while touchmove + preventDefault is the
+  // oldest and most universally supported way to suppress page scroll.
+  const beginDrag = idx => {
     dragIdxRef.current = idx;
     setDragIdx(idx);
+  };
+  const moveDragOver = (clientX, clientY) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    const row = el?.closest('[data-ridx]');
+    if (!row) return;
+    const overIdx = Number(row.dataset.ridx);
+    const from = dragIdxRef.current;
+    if (overIdx === from) return;
+    dragIdxRef.current = overIdx;
+    setDragIdx(overIdx);
+    setItems(cur => {
+      const next = cur.slice();
+      const [moved] = next.splice(from, 1);
+      next.splice(overIdx, 0, moved);
+      return next;
+    });
+  };
+  const endDrag = () => {
+    dragIdxRef.current = null;
+    setDragIdx(null);
+    setItems(cur => { persist(cur); return cur; });
+  };
 
-    const onMove = ev => {
-      const el = document.elementFromPoint(ev.clientX, ev.clientY);
-      const row = el?.closest('[data-ridx]');
-      if (!row) return;
-      const overIdx = Number(row.dataset.ridx);
-      const from = dragIdxRef.current;
-      if (overIdx === from) return;
-      dragIdxRef.current = overIdx;
-      setDragIdx(overIdx);
-      setItems(cur => {
-        const next = cur.slice();
-        const [moved] = next.splice(from, 1);
-        next.splice(overIdx, 0, moved);
-        return next;
-      });
-    };
+  const onPointerDown = idx => e => {
+    if (e.pointerType === 'touch') return; // handled by onTouchStart instead
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    beginDrag(idx);
+
+    const onMove = ev => moveDragOver(ev.clientX, ev.clientY);
     const onUp = () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onUp);
-      dragIdxRef.current = null;
-      setDragIdx(null);
-      setItems(cur => { persist(cur); return cur; });
+      endDrag();
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
+  };
+
+  const onTouchStart = idx => e => {
+    e.preventDefault();
+    beginDrag(idx);
+
+    const onTouchMove = ev => {
+      ev.preventDefault();
+      const t = ev.touches[0];
+      if (t) moveDragOver(t.clientX, t.clientY);
+    };
+    const onTouchEnd = () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+      endDrag();
+    };
+    window.addEventListener('touchmove', onTouchMove, { passive: false });
+    window.addEventListener('touchend', onTouchEnd);
+    window.addEventListener('touchcancel', onTouchEnd);
   };
 
   return (
@@ -81,7 +116,7 @@ export default function Reorder({ onBack }) {
         <div className="reorder-list">
           {items.map((p, idx) => (
             <div className={`reorder-row ${dragIdx === idx ? 'dragging' : ''}`} key={p.id} data-ridx={idx}>
-              <span className="reorder-handle" onPointerDown={onPointerDown(idx)}><Icon name="grip" /></span>
+              <span className="reorder-handle" onPointerDown={onPointerDown(idx)} onTouchStart={onTouchStart(idx)}><Icon name="grip" /></span>
               <div className="row-main">
                 {p.model}{p.storage && <span className="storage"> {p.storage}</span>}
               </div>

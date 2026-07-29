@@ -118,25 +118,26 @@ function extractQty(line) {
 }
 
 /* Trailing grade/condition shorthand like "AB 90+" (grade code + battery
- * floor) is never part of the model name. Only pulled out when the grade
- * code is written in ALL CAPS (as this shop's messages do, e.g. "AB") —
- * that avoids mistaking a real model word like "Pro" for a grade code. */
-function extractCondition(tokens) {
-  const notes = [];
-  let rest = tokens;
-  while (rest.length) {
-    const last = rest[rest.length - 1];
-    if (!/^\d{2,3}\+$/.test(last)) break;
-    const prev = rest[rest.length - 2];
-    if (prev && /^[A-Z]{1,3}$/.test(prev)) {
-      notes.unshift(`${prev} ${last}`);
-      rest = rest.slice(0, -2);
-    } else {
-      notes.unshift(last);
-      rest = rest.slice(0, -1);
-    }
+ * floor) is never part of the model name — pull the battery number out
+ * always, and the grade code too when it's a real configured grade (case-
+ * insensitive), so the caller can promote a grade shared by every line to
+ * the order-level grade picker instead of repeating it in every note.
+ * @param gradeSet - Map of lowercased grade name -> real-cased grade name. */
+function extractCondition(tokens, gradeSet) {
+  const last = tokens[tokens.length - 1];
+  const pm = last && last.match(/^(\d{2,3})\+$/);
+  if (!pm) return { rest: tokens, gradeCode: '', looseCode: '', batteryPct: null };
+  const batteryPct = parseInt(pm[1], 10);
+  const prev = tokens[tokens.length - 2];
+  if (prev && /^[A-Za-z]{1,4}$/.test(prev) && gradeSet.has(prev.toLowerCase())) {
+    return { rest: tokens.slice(0, -2), gradeCode: gradeSet.get(prev.toLowerCase()), looseCode: '', batteryPct };
   }
-  return { rest, note: notes.join(', ') };
+  // Unrecognized ALL-CAPS shorthand (not a configured grade) — still not
+  // part of the model name, but not confident enough to promote as a grade.
+  if (prev && /^[A-Z]{1,3}$/.test(prev)) {
+    return { rest: tokens.slice(0, -2), gradeCode: '', looseCode: prev, batteryPct };
+  }
+  return { rest: tokens.slice(0, -1), gradeCode: '', looseCode: '', batteryPct };
 }
 
 /* @param grades - [{name}] from the API, used to recognize a header grade suffix.
@@ -144,7 +145,7 @@ function extractCondition(tokens) {
  * guessing wrong is worse than leaving it blank for the user to type. */
 export function parseOrderText(text, grades) {
   const rawLines = String(text || '').split('\n').map(l => stripEmoji(l).trim()).filter(Boolean);
-  if (!rawLines.length) return { clientName: '', gradeName: '', items: [] };
+  if (!rawLines.length) return { clientName: '', gradeName: '', batteryMin: null, items: [] };
 
   let gradeName = '';
   let itemLines = rawLines;
@@ -159,7 +160,9 @@ export function parseOrderText(text, grades) {
     itemLines = rawLines.slice(1);
   }
 
-  const items = [];
+  const gradeSet = new Map(grades.map(g => [g.name.toLowerCase(), g.name]));
+
+  const raw = [];
   for (const line of itemLines) {
     const parsed = extractQty(line);
     if (!parsed) continue; // no quantity marker — header/footer/banner text, not an item
@@ -196,14 +199,41 @@ export function parseOrderText(text, grades) {
 
     tokens = mergeStorageUnit(tokens);
     const { storage, rest: rest0 } = extractStorage(tokens);
-    const { rest, note: condNote } = extractCondition(rest0);
-    if (condNote) note = note ? `${note}, ${condNote}` : condNote;
+    const { rest, gradeCode, looseCode, batteryPct } = extractCondition(rest0, gradeSet);
     if (!rest.length) continue;
     const model = titleCase(rest.join(' ')).replace(/\bPm\b/g, 'PM');
-    items.push({ model, storage: storage || DEFAULT_STORAGE, qty, note });
+    raw.push({ model, storage: storage || DEFAULT_STORAGE, qty, note, gradeCode, looseCode, batteryPct });
   }
 
-  return { clientName: '', gradeName, items };
+  // A grade code shared by every line (e.g. "AB" on every row) is promoted
+  // to the order-level grade instead of being repeated in each line's note.
+  if (!gradeName && raw.length && raw.every(r => r.gradeCode)) {
+    const codes = new Set(raw.map(r => r.gradeCode));
+    if (codes.size === 1) gradeName = raw[0].gradeCode;
+  }
+  // Same idea for a battery floor shared by every line — lines disagree in
+  // practice more often than grade does, so this only fires when uniform.
+  let batteryMin = null;
+  if (raw.length && raw.every(r => r.batteryPct != null)) {
+    const pcts = new Set(raw.map(r => r.batteryPct));
+    if (pcts.size === 1) batteryMin = raw[0].batteryPct;
+  }
+
+  const items = raw.map(r => {
+    let note = r.note;
+    if (r.looseCode) note = note ? `${note}, ${r.looseCode}` : r.looseCode;
+    if (r.gradeCode && r.gradeCode !== gradeName) {
+      const t = `Grade: ${r.gradeCode}`;
+      note = note ? `${note}, ${t}` : t;
+    }
+    if (r.batteryPct != null && r.batteryPct !== batteryMin) {
+      const t = `Battery ${r.batteryPct}%+`;
+      note = note ? `${note}, ${t}` : t;
+    }
+    return { model: r.model, storage: r.storage, qty: r.qty, note };
+  });
+
+  return { clientName: '', gradeName, batteryMin, items };
 }
 
 /* Best-effort match against existing products, tolerant of the "Pro Max" vs

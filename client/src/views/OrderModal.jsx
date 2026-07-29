@@ -76,10 +76,11 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     setGradeNames(gs => (gs.includes(name) ? gs.filter(g => g !== name) : [...gs, name]));
 
   const handleParse = () => {
-    const { clientName: cn, gradeName: gn, items } = parseOrderText(pasteText, grades);
+    const { clientName: cn, gradeName: gn, batteryMin: bm, items } = parseOrderText(pasteText, grades);
     if (!items.length) { toast('No order lines found in that text'); return; }
     if (cn) setClientName(cn);
     if (gn) setGradeNames([gn]);
+    if (bm != null) setBatteryMin(bm);
     setLines(items.map(it => {
       const line = blankLine();
       const match = matchProduct(products, it.model, it.storage);
