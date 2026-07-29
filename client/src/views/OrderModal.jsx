@@ -277,7 +277,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
               <div className="line-fixed-name">{line.productName}</div>
             ) : (
               <Select value={line.productId} onChange={v => setLine(line.key, { productId: v })}
-                placeholder="Select product…"
+                placeholder="Search product…" searchable
                 options={[...products.map(p => ({ value: p.id, label: p.displayName })), { value: NEW_PRODUCT, label: '+ New product…' }]} />
             )}
             <input className="line-qty" type="number" min="1" inputMode="numeric" value={line.qty}

@@ -335,9 +335,11 @@ textarea{
 .csel{position:relative}
 .csel-trigger{
   width:100%;padding:10px 30px 10px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);
-  background:var(--bg);text-align:left;font-size:15px;color:var(--ink);position:relative;
+  background:var(--bg);text-align:left;font-size:15px;color:var(--ink);
 }
-.csel-trigger::after{
+/* a sibling span, not a ::after on the trigger — ::after doesn't render on
+   <input>, which the searchable variant uses as its trigger */
+.csel-arrow{
   content:"";position:absolute;right:13px;top:50%;width:8px;height:8px;
   border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);
   transform:translateY(-70%) rotate(45deg);pointer-events:none;
@@ -354,6 +356,7 @@ textarea{
 }
 .csel-opt:hover{background:var(--bg)}
 .csel-opt.selected{background:var(--accent-soft);color:var(--accent-ink);font-weight:700}
+.csel-empty{padding:9px 10px;font-size:14px;color:var(--ink-3)}
 .seg{display:flex;gap:7px;flex-wrap:wrap}
 .seg-btn{
   padding:8px 14px;border-radius:var(--radius-sm);border:1px solid var(--line);

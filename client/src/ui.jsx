@@ -76,9 +76,10 @@ export function Loading({ label = 'Loading' }) {
 
 /* ---------- custom select (native <select> popups can't be themed — this
  * fully-styled dropdown replaces them) ---------- */
-export function Select({ value, onChange, options, placeholder = 'Select…' }) {
+export function Select({ value, onChange, options, placeholder = 'Select…', searchable = false }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
+  const [query, setQuery] = useState('');
   const btnRef = useRef(null);
   const menuRef = useRef(null);
 
@@ -122,18 +123,35 @@ export function Select({ value, onChange, options, placeholder = 'Select…' }) 
   }, [open]);
 
   const current = options.find(o => String(o.value) === String(value));
+  const filtered = searchable && query.trim()
+    ? options.filter(o => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+
+  const pick = v => { onChange(v); setOpen(false); setQuery(''); };
 
   return (
     <div className="csel">
-      <button type="button" ref={btnRef} className="csel-trigger" onClick={() => (open ? setOpen(false) : openMenu())}>
-        <span className={current ? '' : 'csel-placeholder'}>{current ? current.label : placeholder}</span>
-      </button>
+      {searchable ? (
+        <input ref={btnRef} className="csel-trigger" placeholder={placeholder}
+          value={open ? query : (current ? current.label : '')}
+          onFocus={() => { if (!open) { setQuery(''); openMenu(); } }}
+          onChange={e => { setQuery(e.target.value); if (!open) openMenu(); }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && query.trim() && filtered.length) { e.preventDefault(); pick(filtered[0].value); }
+          }} />
+      ) : (
+        <button type="button" ref={btnRef} className="csel-trigger" onClick={() => (open ? setOpen(false) : openMenu())}>
+          <span className={current ? '' : 'csel-placeholder'}>{current ? current.label : placeholder}</span>
+        </button>
+      )}
+      <span className="csel-arrow" />
       {open && pos && createPortal(
         <div className="csel-menu" ref={menuRef} style={pos}>
-          {options.map(o => (
+          {filtered.length === 0 && <div className="csel-empty">No matches</div>}
+          {filtered.map(o => (
             <button key={o.value} type="button"
               className={`csel-opt ${String(o.value) === String(value) ? 'selected' : ''}`}
-              onClick={() => { onChange(o.value); setOpen(false); }}>
+              onClick={() => pick(o.value)}>
               {o.label}
             </button>
           ))}
