@@ -106,6 +106,10 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 }
 
 .main{flex:1;min-width:0;padding:28px 32px 48px;max-width:880px}
+/* Orders is a card grid, not prose/forms — capping its width just wastes
+   space and forces more scrolling on wide screens, so it gets the full
+   remaining width instead of the readability-focused cap other pages use. */
+.main-wide{max-width:none}
 .mobile-head{display:none}
 .tabbar{display:none}
 

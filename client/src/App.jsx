@@ -122,7 +122,7 @@ export default function App() {
             </div>
           </div>
         </aside>
-        <main className="main">
+        <main className={`main ${view === 'orders' ? 'main-wide' : ''}`}>
           <div className="mobile-head">
             <div className="brand">
               <div className="brand-mark">S</div>
