@@ -267,6 +267,12 @@ export default function Orders({ me }) {
   const shareCardImage = async o => {
     const node = cardRefs.current.get(o.id);
     if (!node) return;
+    // Hide the action buttons with a real class toggle so the browser
+    // actually reflows the card without them before capture, rather than
+    // relying on html-to-image's own node filter — pruning nodes only
+    // during its clone/serialize step (after layout) was producing glitches
+    // (wrapped text overlapping the row below it) on some phones.
+    node.classList.add('capturing');
     try {
       // Wait for web fonts so text isn't rasterized against a fallback font
       // metric, and render at a fixed high pixel ratio — matching only the
@@ -276,7 +282,8 @@ export default function Orders({ me }) {
       const dataUrl = await toPng(node, {
         pixelRatio: 3,
         backgroundColor: '#ffffff',
-        filter: el => !(el.classList && el.classList.contains('card-action')),
+        width: node.scrollWidth,
+        height: node.scrollHeight,
       });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `${o.clientName.replace(/\s+/g, '_') || 'order'}.png`, { type: 'image/png' });
@@ -293,6 +300,8 @@ export default function Orders({ me }) {
     } catch (err) {
       if (err?.name === 'AbortError') return; // user cancelled the share sheet
       toast('Could not create the image — try again');
+    } finally {
+      node.classList.remove('capturing');
     }
   };
 

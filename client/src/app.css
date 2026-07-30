@@ -492,6 +492,10 @@ textarea{
   border-radius:var(--radius);padding:13px 15px;box-shadow:var(--shadow);
 }
 .order-head{display:flex;align-items:center;gap:8px}
+/* toggled on an order-card right before it's rendered to an image, so the
+   browser actually reflows without these buttons instead of the image
+   library trying to prune them after the fact */
+.order-card.capturing .card-action{display:none}
 .order-client{font-weight:750;font-size:15.5px;letter-spacing:-.01em;flex:1;min-width:0}
 .rush-pill{
   display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;
