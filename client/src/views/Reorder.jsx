@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { modelSortKey } from '../orderParse';
+import { modelSortKey, formatStorage } from '../orderParse';
 import { Icon, Loading, useToast } from '../ui';
 
 export default function Reorder({ onBack }) {
@@ -140,7 +140,7 @@ export default function Reorder({ onBack }) {
             <div className={`reorder-row ${dragIdx === idx ? 'dragging' : ''}`} key={p.id} data-ridx={idx}>
               <span className="reorder-handle" onPointerDown={onPointerDown(idx)} onTouchStart={onTouchStart(idx)}><Icon name="grip" /></span>
               <div className="row-main">
-                {p.model}{p.storage && <span className="storage"> {p.storage}</span>}
+                {p.model}{p.storage && <span className="storage"> {formatStorage(p.storage)}</span>}
               </div>
               <span className="product-total">{p.total} unit{p.total === 1 ? '' : 's'}</span>
             </div>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, getStickyAdd } from '../api';
 import { Icon, Loading, Modal, gradeClass, useConfirm, useToast } from '../ui';
+import { formatStorage } from '../orderParse';
 
 function formatUpdated(iso) {
   const d = iso && new Date(iso);
@@ -201,7 +202,7 @@ export default function Stock({ onReorder }) {
               <div className="product" key={p.id}>
                 <div className="product-top">
                   <div className="product-name">
-                    {p.model}{p.storage && <span className="storage">{p.storage}</span>}
+                    {p.model}{p.storage && <span className="storage">{formatStorage(p.storage)}</span>}
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div className="product-total">{p.total} unit{p.total === 1 ? '' : 's'}</div>

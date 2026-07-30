@@ -402,6 +402,8 @@ export default function Orders({ me }) {
                 </button>
               );
             })}
+            {/* only shown while rendering the shared image — see .card-credit CSS */}
+            <div className="card-credit">StockBook — Developed by hashtrik.</div>
           </div>
           );
         }) : loadError ? (

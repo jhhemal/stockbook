@@ -276,3 +276,11 @@ export function matchProduct(products, model, storage) {
 export function modelSortKey(model, storage) {
   return `${model} ${storage}`.replace(/\bPM\b/gi, 'Pro Max');
 }
+
+/* Storage is stored/matched as a plain number ("1024") so parsing and
+ * product lookups stay simple — this only affects what gets displayed. */
+export function formatStorage(storage) {
+  const n = parseInt(storage, 10);
+  if (n && n >= 1024 && n % 1024 === 0) return `${n / 1024}TB`;
+  return storage;
+}

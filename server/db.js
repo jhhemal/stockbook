@@ -40,6 +40,14 @@ function createSequelize() {
   });
 }
 
+// Storage is stored/matched as a plain number ("1024") so parsing and
+// product lookups stay simple — this only affects what gets displayed.
+function formatStorage(storage) {
+  const n = parseInt(storage, 10);
+  if (n && n >= 1024 && n % 1024 === 0) return `${n / 1024}TB`;
+  return storage;
+}
+
 function defineModels(sequelize) {
   const User = sequelize.define('User', {
     username: { type: DataTypes.STRING(50), allowNull: false, unique: true },
@@ -63,7 +71,7 @@ function defineModels(sequelize) {
     indexes: [{ unique: true, fields: ['model', 'storage'] }],
   });
   Object.defineProperty(Product.prototype, 'displayName', {
-    get() { return `${this.model} ${this.storage}`.trim(); },
+    get() { return `${this.model} ${formatStorage(this.storage)}`.trim(); },
   });
 
   const Sale = sequelize.define('Sale', {
