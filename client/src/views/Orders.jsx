@@ -242,7 +242,7 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved, onProdu
           <button type="button" className="step-btn" onClick={() => setQtyFulfilled(q => Math.min(qtyOrdered, q + 1))}>+</button>
         </div>
       </div>
-      {product && delta > 0 && (
+      {product && delta > 0 && stockGradeOptions.length > 0 && (
         <div className="field">
           <div className="toggle-row" style={{ border: 'none', padding: 0, margin: fromStock ? '0 0 8px' : 0 }}>
             <span>Deduct from stock</span>
@@ -250,16 +250,12 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved, onProdu
               <input type="checkbox" checked={fromStock} onChange={e => {
                 const on = e.target.checked;
                 setFromStock(on);
-                if (on && !stockGradeId && stockGradeOptions.length) setStockGradeId(stockGradeOptions[0].value);
+                if (on && !stockGradeId) setStockGradeId(stockGradeOptions[0].value);
               }} /><i></i>
             </span>
           </div>
           {fromStock && (
-            stockGradeOptions.length ? (
-              <Select value={stockGradeId} onChange={setStockGradeId} placeholder="Which grade?" options={stockGradeOptions} />
-            ) : (
-              <div className="row-sub">No matching stock to deduct from</div>
-            )
+            <Select value={stockGradeId} onChange={setStockGradeId} placeholder="Which grade?" options={stockGradeOptions} />
           )}
         </div>
       )}
