@@ -22,9 +22,12 @@ export default function Reorder({ onBack }) {
     finally { setSaving(false); }
   };
 
+  // "PM" (this shop's Pro Max shorthand) needs expanding before comparing —
+  // otherwise "13 PM" sorts ahead of "13 Pro" (M < R) instead of after it.
+  const sortKey = p => `${p.model} ${p.storage}`.replace(/\bPM\b/gi, 'Pro Max');
   const sortByName = () => {
     const sorted = [...items].sort((a, b) =>
-      `${a.model} ${a.storage}`.localeCompare(`${b.model} ${b.storage}`, undefined, { numeric: true, sensitivity: 'base' }));
+      sortKey(a).localeCompare(sortKey(b), undefined, { numeric: true, sensitivity: 'base' }));
     setItems(sorted);
     persist(sorted);
   };
@@ -35,7 +38,22 @@ export default function Reorder({ onBack }) {
   // some mobile browsers/WebViews (e.g. in-app browsers) implement Pointer
   // Events unreliably for drags, while touchmove + preventDefault is the
   // oldest and most universally supported way to suppress page scroll.
+  // If a touchend/pointerup ever fails to fire (seems to happen after a
+  // drag or two on some mobile browsers), its listeners would otherwise
+  // stay attached forever, fighting the next drag's listeners over the
+  // same shared dragIdxRef until the page is reloaded. Tracking the active
+  // drag's own teardown here lets every new gesture force-clean the
+  // previous one first, so it's self-healing instead of accumulating.
+  const activeDragCleanup = useRef(null);
+  const teardownDrag = () => {
+    activeDragCleanup.current?.();
+    activeDragCleanup.current = null;
+  };
+  // Also tear down if the view unmounts mid-drag (e.g. navigating away).
+  useEffect(() => () => activeDragCleanup.current?.(), []);
+
   const beginDrag = idx => {
+    teardownDrag();
     dragIdxRef.current = idx;
     setDragIdx(idx);
   };
@@ -69,14 +87,17 @@ export default function Reorder({ onBack }) {
 
     const onMove = ev => moveDragOver(ev.clientX, ev.clientY);
     const onUp = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointercancel', onUp);
+      teardownDrag();
       endDrag();
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onUp);
+    activeDragCleanup.current = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
   };
 
   const onTouchStart = idx => e => {
@@ -89,14 +110,17 @@ export default function Reorder({ onBack }) {
       if (t) moveDragOver(t.clientX, t.clientY);
     };
     const onTouchEnd = () => {
-      window.removeEventListener('touchmove', onTouchMove);
-      window.removeEventListener('touchend', onTouchEnd);
-      window.removeEventListener('touchcancel', onTouchEnd);
+      teardownDrag();
       endDrag();
     };
     window.addEventListener('touchmove', onTouchMove, { passive: false });
     window.addEventListener('touchend', onTouchEnd);
     window.addEventListener('touchcancel', onTouchEnd);
+    activeDragCleanup.current = () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+    };
   };
 
   return (
