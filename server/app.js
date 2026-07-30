@@ -17,13 +17,10 @@ app.use('/api', async (req, res, next) => {
     await connectDB();
     next();
   } catch (err) {
+    // Full diagnostic goes to the server log only — showing it to users
+    // surfaced as raw setup instructions in a toast on every transient blip.
     console.error('DB connection failed:', err);
-    // Surface the real reason so misconfiguration is easy to diagnose
-    res.status(500).json({
-      detail: `Database connection failed: ${err.message}. ` +
-        `Check that DATABASE_URL is set to your Supabase Transaction pooler string ` +
-        `(Supabase Dashboard → Connect → Transaction pooler, port 6543) with the real password filled in.`,
-    });
+    res.status(503).json({ detail: 'Server is temporarily unavailable — please try again in a moment.' });
   }
 });
 

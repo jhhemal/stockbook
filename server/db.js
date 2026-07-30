@@ -22,7 +22,9 @@ function createSequelize() {
       dialect: 'postgres',
       dialectModule: pg,
       logging: false,
-      pool: { max: 2, min: 0, idle: 10000 }, // small pool for serverless
+      // A page load fires several requests at once (partners/products/grades/
+      // orders) — max:2 forced them to queue for a connection one at a time.
+      pool: { max: 10, min: 0, idle: 10000 },
       dialectOptions: isLocal ? {} : { ssl: { require: true, rejectUnauthorized: false } },
     });
   }
@@ -147,7 +149,14 @@ const INITIAL_STOCK = [
 async function seed(models) {
   const { User, Grade, Product, StockMovement, Partner } = models;
 
-  if ((await User.count()) === 0) {
+  // On every cold start past the very first, all four are already non-zero
+  // and every branch below is skipped — running the checks in parallel
+  // instead of four sequential round-trips keeps that common case cheap.
+  const [userCount, gradeCount, partnerCount, productCount] = await Promise.all([
+    User.count(), Grade.count(), Partner.count(), Product.count(),
+  ]);
+
+  if (userCount === 0) {
     await User.create({
       username: process.env.ADMIN_USERNAME || 'admin',
       passwordHash: await bcrypt.hash(process.env.ADMIN_PASSWORD || 'admin123', 10),
@@ -155,15 +164,15 @@ async function seed(models) {
     });
   }
 
-  if ((await Grade.count()) === 0) {
+  if (gradeCount === 0) {
     await Grade.bulkCreate(DEFAULT_GRADES.map((name, i) => ({ name, sortOrder: i })));
   }
 
-  if ((await Partner.count()) === 0) {
+  if (partnerCount === 0) {
     await Partner.bulkCreate(DEFAULT_PARTNERS.map(([name, color], i) => ({ name, color, sortOrder: i })));
   }
 
-  if ((await Product.count()) === 0) {
+  if (productCount === 0) {
     const grades = await Grade.findAll();
     const byName = Object.fromEntries(grades.map(g => [g.name, g]));
     for (let i = 0; i < INITIAL_STOCK.length; i++) {
@@ -183,17 +192,34 @@ async function seed(models) {
   }
 }
 
+// The full column-by-column diff/alter is what makes a cold start slow, so
+// it only runs when explicitly asked for: set DB_SYNC_ALTER=true in the
+// environment, let one cold start pick up the schema change, then unset it.
+// Every other cold start takes the fast path (create tables if missing,
+// no per-column introspection).
+async function attemptConnect() {
+  const sequelize = createSequelize();
+  const models = defineModels(sequelize);
+  await sequelize.authenticate();
+  await sequelize.sync({ alter: process.env.DB_SYNC_ALTER === 'true' });
+  await seed(models);
+  cached.sequelize = sequelize;
+  Object.assign(cached.models, models);
+}
+
 async function connectDB() {
   if (!cached.ready) {
-    cached.ready = (async () => {
-      const sequelize = createSequelize();
-      const models = defineModels(sequelize);
-      await sequelize.authenticate();
-      await sequelize.sync({ alter: true }); // creates tables + adds/adjusts columns (no migrations tooling here)
-      await seed(models);
-      cached.sequelize = sequelize;
-      Object.assign(cached.models, models);
-    })();
+    // One quick retry for a transient blip (DNS hiccup, brief pool
+    // exhaustion) before giving up, and — critically — if it still fails,
+    // clear `cached.ready` so the *next* request tries fresh instead of
+    // reusing this rejected promise forever (a warm serverless instance
+    // that hit one bad connection would otherwise fail every request until
+    // Vercel happened to recycle it).
+    cached.ready = attemptConnect().catch(async err => {
+      await new Promise(r => setTimeout(r, 300));
+      try { await attemptConnect(); }
+      catch (retryErr) { cached.ready = null; throw retryErr; }
+    });
   }
   await cached.ready;
 }
