@@ -302,7 +302,9 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
         <div className="line-editor" key={line.key}>
           <div className="line-editor-top">
             {line.id ? (
-              <div className="line-fixed-name">{line.productName}</div>
+              // productName is a saved snapshot — older lines have "1024"
+              // baked in from before storage displayed as "1TB".
+              <div className="line-fixed-name">{line.productName.replace(/\b1024\b/, '1TB')}</div>
             ) : (
               <Select value={line.productId} onChange={v => setLineProduct(line.key, { productId: v })}
                 placeholder="Search product…" searchable

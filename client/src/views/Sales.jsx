@@ -124,7 +124,7 @@ export default function Sales() {
               <span className="sale-qty">×{s.qty}</span>
               <div className="sale-info">
                 <div className="sale-what">
-                  {s.productName}{' '}
+                  {s.productName.replace(/\b1024\b/, '1TB')}{' '}
                   <span className={`badge ${gradeClassByName(grades, s.gradeName)}`}>{s.gradeName}</span>
                 </div>
                 <div className="sale-meta">

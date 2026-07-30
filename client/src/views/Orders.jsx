@@ -42,7 +42,11 @@ function orderProgress(order) {
 }
 
 function lineLabel(line) {
-  let s = line.productName;
+  // productName is a snapshot saved to the order line when it was created —
+  // older lines have "1024" baked in from before storage got formatted as
+  // "1TB", and that stored text never gets rewritten. Fixing it here at
+  // display time covers old and new snapshots alike.
+  let s = line.productName.replace(/\b1024\b/, '1TB');
   if (line.grades.length) s += ' · ' + line.grades.join('/');
   if (line.batteryMin) s += ` · ${line.batteryMin}+`;
   return s;

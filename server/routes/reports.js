@@ -67,10 +67,13 @@ router.get('/sold', async (req, res) => {
   const sales = await models.Sale.findAll({ where });
 
   // aggregate: productName -> gradeName -> qty
+  // productName is a saved snapshot — older sales have "1024" baked in from
+  // before storage displayed as "1TB", fixed here rather than in the data.
   const agg = {};
   for (const s of sales) {
-    agg[s.productName] = agg[s.productName] || {};
-    agg[s.productName][s.gradeName] = (agg[s.productName][s.gradeName] || 0) + s.qty;
+    const pname = s.productName.replace(/\b1024\b/, '1TB');
+    agg[pname] = agg[pname] || {};
+    agg[pname][s.gradeName] = (agg[pname][s.gradeName] || 0) + s.qty;
   }
 
   const isToday = start.toDateString() === new Date(new Date().setHours(0, 0, 0, 0)).toDateString();

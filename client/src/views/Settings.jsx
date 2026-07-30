@@ -301,7 +301,7 @@ export default function Settings({ me }) {
               <div className="mv-item" key={m.id}>
                 <span className={`mv-change ${m.change > 0 ? 'pos' : 'neg'}`}>{m.change > 0 ? '+' : ''}{m.change}</span>
                 <span>
-                  {m.productName}{' '}
+                  {m.productName.replace(/\b1024\b/, '1TB')}{' '}
                   <span className={`badge ${gradeClassByName(grades, m.gradeName)}`}>{m.gradeName}</span>
                 </span>
                 <span className="mv-meta">
