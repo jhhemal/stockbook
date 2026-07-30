@@ -268,8 +268,13 @@ export default function Orders({ me }) {
     const node = cardRefs.current.get(o.id);
     if (!node) return;
     try {
+      // Wait for web fonts so text isn't rasterized against a fallback font
+      // metric, and render at a fixed high pixel ratio — matching only the
+      // viewing device's devicePixelRatio produced soft/blurry text on
+      // higher-density phone screens WhatsApp images get viewed at.
+      if (document.fonts?.ready) await document.fonts.ready;
       const dataUrl = await toPng(node, {
-        pixelRatio: 2,
+        pixelRatio: 3,
         backgroundColor: '#ffffff',
         filter: el => !(el.classList && el.classList.contains('card-action')),
       });
