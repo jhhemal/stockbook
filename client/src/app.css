@@ -482,7 +482,7 @@ textarea{
 /* ============================================================
    ORDERS
    ============================================================ */
-.orders-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.orders-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px;align-items:start}
 @media (max-width:768px){.orders-grid{grid-template-columns:1fr}}
 /* Past this, auto-fill would keep adding narrower columns instead of
    widening the existing four — lock it to 4 and let cards grow instead. */
