@@ -18,6 +18,14 @@ function shipByOverdue(o) {
     o.shipByValue < new Date().toISOString().slice(0, 10);
 }
 
+// A "day" ship-by (e.g. "Friday") is due today whenever today happens to
+// land on that weekday — it's a recurring label, not a one-off date.
+function shipsToday(o) {
+  if (o.shipByType === 'date') return o.shipByValue === new Date().toISOString().slice(0, 10);
+  if (o.shipByType === 'day') return o.shipByValue === new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  return false;
+}
+
 function barClass(line) {
   const p = line.qtyOrdered ? line.qtyFulfilled / line.qtyOrdered : 0;
   if (p >= 1) return 'green';
@@ -208,6 +216,8 @@ export default function Orders({ me }) {
   const [grades, setGrades] = useState([]);
   const [tab, setTab] = useState('active');           // active | done
   const [partnerFilter, setPartnerFilter] = useState('');
+  const [rushOnly, setRushOnly] = useState(false);
+  const [shipFilter, setShipFilter] = useState('');    // '' | 'today' | 'overdue'
   const [editing, setEditing] = useState(undefined);  // undefined=closed, null=new, obj=edit
   const [fulfilling, setFulfilling] = useState(null); // { order, line }
   const [loadError, setLoadError] = useState(false);
@@ -260,6 +270,12 @@ export default function Orders({ me }) {
   const unitsNeeded = orders.reduce((n, o) =>
     n + (o.status === 'active' ? o.lines.reduce((m, l) => m + Math.max(0, l.qtyOrdered - l.qtyFulfilled), 0) : 0), 0);
 
+  const visibleOrders = orders.filter(o =>
+    (!rushOnly || o.isRush) &&
+    (shipFilter !== 'today' || shipsToday(o)) &&
+    (shipFilter !== 'overdue' || shipByOverdue(o)));
+  const filtersActive = rushOnly || shipFilter;
+
   return (
     <>
       <div className="page-head">
@@ -283,10 +299,18 @@ export default function Orders({ me }) {
             <span className="pdot" style={{ background: p.color, width: 9, height: 9, marginRight: 6 }}></span>{p.name}
           </button>
         ))}
+        <span style={{ width: 6 }}></span>
+        <button className={`chip ${rushOnly ? 'selected' : ''}`} onClick={() => setRushOnly(r => !r)}>
+          <Icon name="bolt" size={11} /> Priority
+        </button>
+        <button className={`chip ${shipFilter === 'today' ? 'selected' : ''}`}
+          onClick={() => setShipFilter(f => (f === 'today' ? '' : 'today'))}>Ship today</button>
+        <button className={`chip ${shipFilter === 'overdue' ? 'selected' : ''}`}
+          onClick={() => setShipFilter(f => (f === 'overdue' ? '' : 'overdue'))}>Overdue</button>
       </div>
 
       <div className="orders-grid">
-        {orders.length ? orders.map(o => {
+        {visibleOrders.length ? visibleOrders.map(o => {
           const prog = orderProgress(o);
           return (
           <div className="order-card" key={o.id} style={{ borderLeftColor: o.partnerColor }}>
@@ -336,6 +360,11 @@ export default function Orders({ me }) {
           <div className="empty" style={{ gridColumn: '1/-1' }}>
             <b>Couldn't load orders</b>
             <p><button className="btn btn-ghost btn-sm" onClick={() => { setOrders(null); setLoadError(false); loadOrders(); }}>Retry</button></p>
+          </div>
+        ) : filtersActive ? (
+          <div className="empty" style={{ gridColumn: '1/-1' }}>
+            <b>No orders match those filters</b>
+            <p><button className="btn btn-ghost btn-sm" onClick={() => { setRushOnly(false); setShipFilter(''); }}>Clear filters</button></p>
           </div>
         ) : (
           <div className="empty" style={{ gridColumn: '1/-1' }}>
