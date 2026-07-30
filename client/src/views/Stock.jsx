@@ -113,13 +113,18 @@ export default function Stock({ onReorder }) {
   const q = search.trim().toLowerCase();
   const items = products.filter(p => !q || p.displayName.toLowerCase().includes(q));
   const totalUnits = products.reduce((n, p) => n + p.total, 0);
+  const lastUpdated = products.reduce((latest, p) =>
+    (p.updatedAt && (!latest || new Date(p.updatedAt) > new Date(latest))) ? p.updatedAt : latest, null);
 
   return (
     <>
       <div className="page-head">
         <div>
           <div className="page-title">Stock</div>
-          <div className="page-sub">Tap + / − to adjust counts</div>
+          <div className="page-sub">
+            Tap + / − to adjust counts
+            {formatUpdated(lastUpdated) && ` · Last updated ${formatUpdated(lastUpdated)}`}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn btn-ghost" onClick={onReorder}><Icon name="grip" /> Reorder</button>

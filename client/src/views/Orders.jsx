@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
-import { copyText, Icon, Loading, Modal, useRefetchOnFocus, useToast } from '../ui';
+import { copyText, Icon, Loading, Modal, Select, useRefetchOnFocus, useToast } from '../ui';
 import { modelSortKey } from '../orderParse';
 import OrderModal from './OrderModal';
 
@@ -92,30 +92,45 @@ function orderReportText(order) {
   return lines.join('\n').trim();
 }
 
-function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
+function FulfillModal({ order, line, products, grades, onClose, onSaved, onProductsChanged }) {
   const toast = useToast();
   const [qtyOrdered, setQtyOrdered] = useState(line.qtyOrdered);
   const [qtyFulfilled, setQtyFulfilled] = useState(line.qtyFulfilled);
   const [note, setNote] = useState(line.note || '');
+  const [fromStock, setFromStock] = useState(false);
+  const [stockGradeId, setStockGradeId] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const delta = qtyFulfilled - line.qtyFulfilled;
   const product = products.find(p => p.id === line.productId);
   const stockHint = product
     ? (line.grades.length
         ? grades.filter(g => substituteGrades(line.grades).includes(g.name)).map(g => `${g.name} ${product.counts[g.id] || 0}`).join(' · ')
         : `${product.total} total`)
     : null;
+  // Units go into "supplied" from two places: pulled off the shelf (should
+  // come off the tracked count too) or handed over fresh from testing,
+  // never having touched stock — hence this being opt-in, not automatic.
+  const stockGradeOptions = product
+    ? (line.grades.length ? grades.filter(g => substituteGrades(line.grades).includes(g.name)) : grades)
+        .filter(g => (product.counts[g.id] || 0) > 0)
+        .map(g => ({ value: g.id, label: `${g.name} (${product.counts[g.id]} in stock)` }))
+    : [];
 
   const save = async () => {
     if (!qtyOrdered || qtyOrdered < 1) { toast('Quantity needed must be at least 1'); return; }
-    const delta = qtyFulfilled - line.qtyFulfilled;
     const noteChanged = note !== (line.note || '');
     if (!delta && qtyOrdered === line.qtyOrdered && !noteChanged) { onClose(); return; }
+    if (fromStock && delta > 0 && !stockGradeId) { toast('Pick which grade to deduct from stock'); return; }
     setBusy(true);
     try {
       if (qtyOrdered !== line.qtyOrdered || noteChanged) {
         await api.patch(`/api/orders/${order.id}/lines/${line.id}`,
           { qty_ordered: qtyOrdered, note });
+      }
+      if (fromStock && delta > 0) {
+        await api.post(`/api/products/${line.productId}/adjust`, { grade_id: stockGradeId, change: -delta });
+        onProductsChanged?.();
       }
       if (delta) {
         await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, { qty: delta });
@@ -152,6 +167,27 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
           <button type="button" className="step-btn" onClick={() => setQtyFulfilled(q => Math.min(qtyOrdered, q + 1))}>+</button>
         </div>
       </div>
+      {product && delta > 0 && (
+        <div className="field">
+          <div className="toggle-row" style={{ border: 'none', padding: 0, margin: fromStock ? '0 0 8px' : 0 }}>
+            <span>Deduct from stock</span>
+            <span className="switch">
+              <input type="checkbox" checked={fromStock} onChange={e => {
+                const on = e.target.checked;
+                setFromStock(on);
+                if (on && !stockGradeId && stockGradeOptions.length) setStockGradeId(stockGradeOptions[0].value);
+              }} /><i></i>
+            </span>
+          </div>
+          {fromStock && (
+            stockGradeOptions.length ? (
+              <Select value={stockGradeId} onChange={setStockGradeId} placeholder="Which grade?" options={stockGradeOptions} />
+            ) : (
+              <div className="row-sub">No matching stock to deduct from</div>
+            )
+          )}
+        </div>
+      )}
       <div className="field">
         <label>Extra requirement</label>
         <input value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. only pink, no black" />
@@ -189,6 +225,8 @@ export default function Orders({ me }) {
       toast(err.message); setOrders([]); setLoadError(true);
     }
   };
+
+  const refreshProducts = async () => setProducts(await api.get('/api/products'));
 
   useEffect(() => {
     (async () => {
@@ -312,12 +350,13 @@ export default function Orders({ me }) {
           onClose={() => setEditing(undefined)}
           onSaved={() => { setEditing(undefined); loadOrders(); }}
           onRefresh={loadOrders}
-          onProductsChanged={async () => setProducts(await api.get('/api/products'))} />
+          onProductsChanged={refreshProducts} />
       )}
       {fulfilling && (
         <FulfillModal order={fulfilling.order} line={fulfilling.line} products={products} grades={grades}
           onClose={() => setFulfilling(null)}
-          onSaved={() => { setFulfilling(null); loadOrders(); }} />
+          onSaved={() => { setFulfilling(null); loadOrders(); }}
+          onProductsChanged={refreshProducts} />
       )}
     </>
   );
