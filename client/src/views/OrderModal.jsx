@@ -11,6 +11,26 @@ const blankLine = () => ({ key: ++lineKey, id: null, productId: '', newModel: ''
 
 const BATTERY_OPTIONS = [{ value: '', label: 'Any' }, ...[80, 85, 90, 95].map(b => ({ value: b, label: `${b}%+` }))];
 
+/* Best name available for a line, whatever state it's in — an existing
+ * line already has its productName resolved, a new line needs a look-up
+ * (or the quick-add fields), and a genuinely blank new line sorts last. */
+function lineSortName(line, products) {
+  if (line.productName) return line.productName;
+  if (line.productId === NEW_PRODUCT) return line.newModel ? `${line.newModel} ${line.newStorage}`.trim() : '';
+  const p = products.find(p => p.id === line.productId);
+  return p ? p.displayName : '';
+}
+
+function resortLines(ls, products) {
+  return ls
+    .map((l, i) => ({ l, i, name: lineSortName(l, products) }))
+    .sort((a, b) => {
+      if (!a.name || !b.name) return (!a.name && !b.name) ? a.i - b.i : (!a.name ? 1 : -1);
+      return modelSortKey(a.name, '').localeCompare(modelSortKey(b.name, ''), undefined, { numeric: true, sensitivity: 'base' });
+    })
+    .map(x => x.l);
+}
+
 /* Lines used to carry their own grades/battery; orders in practice use the
  * same values for everything, so pick them up as order-level defaults. */
 function commonGrades(orderLines) {
@@ -38,10 +58,10 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   const [shipDay, setShipDay] = useState(order?.shipByType === 'day' ? order.shipByValue : 'Friday');
   const [lines, setLines] = useState(() =>
     order
-      ? order.lines.map(l => ({
+      ? resortLines(order.lines.map(l => ({
           key: ++lineKey, id: l.id, productId: l.productId || '', productName: l.productName,
           newModel: '', newStorage: '', note: l.note || '', qty: l.qtyOrdered,
-        }))
+        })), products)
       : [blankLine()]);
   const [removedIds, setRemovedIds] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -68,6 +88,12 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   };
 
   const setLine = (key, patch) => setLines(ls => ls.map(l => (l.key === key ? { ...l, ...patch } : l)));
+  // A line added later shouldn't just sit at the bottom once it's given a
+  // product — re-sort right when its identity changes (product picked, or
+  // the quick-add model/storage finished being typed), not on every
+  // keystroke of qty/note, which would make those rows jump around instead.
+  const setLineProduct = (key, patch) =>
+    setLines(ls => resortLines(ls.map(l => (l.key === key ? { ...l, ...patch } : l)), products));
   const removeLine = line => {
     if (line.id) setRemovedIds(ids => [...ids, line.id]);
     setLines(ls => ls.filter(l => l.key !== line.key));
@@ -278,7 +304,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
             {line.id ? (
               <div className="line-fixed-name">{line.productName}</div>
             ) : (
-              <Select value={line.productId} onChange={v => setLine(line.key, { productId: v })}
+              <Select value={line.productId} onChange={v => setLineProduct(line.key, { productId: v })}
                 placeholder="Search product…" searchable
                 options={[...products.map(p => ({ value: p.id, label: p.displayName })), { value: NEW_PRODUCT, label: '+ New product…' }]} />
             )}
@@ -289,8 +315,10 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           </div>
           {line.productId === NEW_PRODUCT && (
             <div className="line-newprod">
-              <input value={line.newModel} onChange={e => setLine(line.key, { newModel: e.target.value })} placeholder="Model, e.g. 17 Pro" />
-              <input value={line.newStorage} onChange={e => setLine(line.key, { newStorage: e.target.value })} placeholder="Any (edit later)" />
+              <input value={line.newModel} onChange={e => setLine(line.key, { newModel: e.target.value })}
+                onBlur={() => setLineProduct(line.key, {})} placeholder="Model, e.g. 17 Pro" />
+              <input value={line.newStorage} onChange={e => setLine(line.key, { newStorage: e.target.value })}
+                onBlur={() => setLineProduct(line.key, {})} placeholder="Any (edit later)" />
             </div>
           )}
           <input className="line-note" value={line.note} onChange={e => setLine(line.key, { note: e.target.value })}
