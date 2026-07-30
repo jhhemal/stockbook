@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { copyText, Icon, Loading, Modal, useRefetchOnFocus, useToast } from '../ui';
+import { modelSortKey } from '../orderParse';
 import OrderModal from './OrderModal';
 
 const WEEKDAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
@@ -38,6 +39,14 @@ function lineLabel(line) {
   return s;
 }
 
+/* Lines come back from the server in insertion order (whenever each one
+ * was added to the order), not name order — sort for display here since
+ * the server itself doesn't reorder them on every edit. */
+function sortedLines(lines) {
+  return [...lines].sort((a, b) =>
+    modelSortKey(a.productName, '').localeCompare(modelSortKey(b.productName, ''), undefined, { numeric: true, sensitivity: 'base' }));
+}
+
 // A- routinely gets used to fill an A order at this shop, so a line asking
 // for A should also count A- stock as usable toward it (not the reverse).
 function substituteGrades(names) {
@@ -67,7 +76,7 @@ function lineStock(line, products, grades) {
  * and what's still owed, so it can be sent whenever the client asks. */
 function orderReportText(order) {
   const lines = [`${order.clientName} — via ${order.partnerName}`, ''];
-  for (const l of order.lines) {
+  for (const l of sortedLines(order.lines)) {
     const remaining = Math.max(0, l.qtyOrdered - l.qtyFulfilled);
     lines.push(lineLabel(l));
     lines.push(remaining > 0
@@ -255,7 +264,7 @@ export default function Orders({ me }) {
               via {o.partnerName}
               {shipByLabel(o) && <> · <span className={shipByOverdue(o) ? 'overdue' : ''}>ship by {shipByLabel(o)}</span></>}
             </div>
-            {o.lines.map(l => {
+            {sortedLines(o.lines).map(l => {
               const done = l.qtyFulfilled >= l.qtyOrdered;
               const clickable = o.status !== 'cancelled';
               const stock = !done ? lineStock(l, products, grades) : null;
