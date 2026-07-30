@@ -38,6 +38,22 @@ function lineLabel(line) {
   return s;
 }
 
+/* How much of what this line needs is actually sitting in stock right now —
+ * summed across the line's allowed grades, or the product total if any
+ * grade will do. null when the product has since been deleted. */
+function lineStock(line, products, grades) {
+  const product = products.find(p => p.id === line.productId);
+  if (!product) return null;
+  const available = line.grades.length
+    ? line.grades.reduce((n, gname) => {
+        const g = grades.find(x => x.name === gname);
+        return n + (g ? (product.counts[g.id] || 0) : 0);
+      }, 0)
+    : product.total;
+  const remaining = Math.max(0, line.qtyOrdered - line.qtyFulfilled);
+  return { available, cls: available <= 0 ? 'red' : available >= remaining ? 'green' : 'blue' };
+}
+
 /* WhatsApp-ready status update for one order — what's been supplied so far
  * and what's still owed, so it can be sent whenever the client asks. */
 function orderReportText(order) {
@@ -233,6 +249,7 @@ export default function Orders({ me }) {
             {o.lines.map(l => {
               const done = l.qtyFulfilled >= l.qtyOrdered;
               const clickable = o.status !== 'cancelled';
+              const stock = !done ? lineStock(l, products, grades) : null;
               return (
                 <button type="button" className={`order-line ${done ? 'ol-done' : ''}`} key={l.id}
                   disabled={!clickable}
@@ -241,6 +258,11 @@ export default function Orders({ me }) {
                     <span className="ol-name">
                       {lineLabel(l)}
                       {l.note && <span className="note-badge">{l.note}</span>}
+                      {stock && (
+                        <span className={`stock-badge ${stock.cls}`}>
+                          {stock.available > 0 ? `Stock: ${stock.available}` : 'Out of stock'}
+                        </span>
+                      )}
                     </span>
                     <span className="ol-qty">{l.qtyFulfilled}/{l.qtyOrdered}{done ? ' ✓' : ''}</span>
                   </div>

@@ -515,6 +515,13 @@ textarea{
   padding:2px 8px;border-radius:999px;margin-left:6px;
   background:var(--accent-soft);color:var(--accent-ink);
 }
+.stock-badge{
+  display:inline-block;font-size:11px;font-weight:700;letter-spacing:.01em;
+  padding:2px 8px;border-radius:999px;margin-left:6px;background:var(--bg);border:1px solid var(--line);
+}
+.stock-badge.green{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
+.stock-badge.blue{color:#2563EB}
+.stock-badge.red{background:var(--danger-soft);color:var(--danger);border-color:transparent}
 .obar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
 .obar i{display:block;height:100%;border-radius:2px;transition:width .2s}
 .obar .red{background:#DC2626}
