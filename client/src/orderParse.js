@@ -1,7 +1,7 @@
 /* Parses pasted WhatsApp-style order notes. Quantity can show up as a
  * prefix ("2-13 pro 128", "15x 15 pro max 256", "X4 14 pro max 256"), a
- * suffix ("14 x2" / "14PM 256 1x"), a count in parens ("iPhone 13 Pro
- * 256gb (3)"), or a bare trailing number. Lines with no recognizable
+ * suffix ("14 x2" / "14PM 256 1x" / "13 pro 128 - 30"), a count in parens
+ * ("iPhone 13 Pro 256gb (3)"), or a bare trailing number. Lines with no recognizable
  * quantity at all (footers like "Total 16 pcs", "*banner*" text) are
  * skipped rather than turned into a bogus item. A line with no storage
  * size falls back to 128. If the first line isn't itself an item, it's
@@ -93,6 +93,12 @@ function extractStorage(tokens) {
 function extractQty(line) {
   let m = line.match(/^(\d+)\s*[-–]\s*(.+)$/);
   if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
+
+  // Trailing "13 pro 128 - 30" — dash then quantity at the very end. Without
+  // this the bare-number fallback below still finds the 30, but leaves the
+  // dash stuck onto the body ("13 pro 128 -"), corrupting the model name.
+  m = line.match(/^(.+?)\s*[-–]\s*(\d+)\s*$/);
+  if (m) return { qty: parseInt(m[2], 10), body: m[1], trailingNote: '' };
 
   // Leading "15x 15 pro max 256" — a bare "Nx" (with a space before the
   // model) is a quantity prefix, not the trailing "body xN" suffix below.
