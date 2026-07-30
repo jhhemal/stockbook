@@ -496,6 +496,18 @@ textarea{
    browser actually reflows without these buttons instead of the image
    library trying to prune them after the fact */
 .order-card.capturing .card-action{display:none}
+/* The image renderer doesn't recalculate a flex row's height correctly
+   when its content wraps to multiple lines — the next element ends up
+   drawn at the single-line height, overlapping the wrapped text. Simple
+   block stacking doesn't have that failure mode, so capture mode swaps
+   to it for the two rows most likely to wrap (long client names, long
+   line names/badges), trading the side-by-side look for one that can
+   never overlap. */
+.order-card.capturing .order-head{display:block}
+.order-card.capturing .order-head > *{display:inline-block;margin:0 6px 4px 0}
+.order-card.capturing .ol-row{display:block}
+.order-card.capturing .ol-name{display:block}
+.order-card.capturing .ol-qty{display:block;text-align:right;margin-top:2px}
 .order-client{font-weight:750;font-size:15.5px;letter-spacing:-.01em;flex:1;min-width:0}
 .rush-pill{
   display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;
