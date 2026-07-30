@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
+import { modelSortKey } from '../orderParse';
 import { Icon, Loading, useToast } from '../ui';
 
 export default function Reorder({ onBack }) {
@@ -22,12 +23,9 @@ export default function Reorder({ onBack }) {
     finally { setSaving(false); }
   };
 
-  // "PM" (this shop's Pro Max shorthand) needs expanding before comparing —
-  // otherwise "13 PM" sorts ahead of "13 Pro" (M < R) instead of after it.
-  const sortKey = p => `${p.model} ${p.storage}`.replace(/\bPM\b/gi, 'Pro Max');
   const sortByName = () => {
     const sorted = [...items].sort((a, b) =>
-      sortKey(a).localeCompare(sortKey(b), undefined, { numeric: true, sensitivity: 'base' }));
+      modelSortKey(a.model, a.storage).localeCompare(modelSortKey(b.model, b.storage), undefined, { numeric: true, sensitivity: 'base' }));
     setItems(sorted);
     persist(sorted);
   };

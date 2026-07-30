@@ -25,7 +25,14 @@ const COLOR_WORDS = new Set([
   'starlight', 'graphite', 'coral', 'lavender', 'teal',
 ]);
 
-const IGNORED_WORDS = new Set(['iphone', 'apple']);
+// Some partners write in Spanish — filler/connector words like "de" ("of")
+// sneak into a line's body and end up baked into the model name (e.g. "13
+// De Pro Max"), which then fails to match the real "13 Pro Max" product and
+// creates a duplicate. Stripped the same way "iPhone"/"Apple" already are.
+const IGNORED_WORDS = new Set([
+  'iphone', 'apple',
+  'de', 'del', 'con', 'y', 'el', 'la', 'los', 'las', 'un', 'una', 'para',
+]);
 
 function escapeRegex(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -247,4 +254,11 @@ function normKey(model, storage) {
 export function matchProduct(products, model, storage) {
   const key = normKey(model, storage);
   return products.find(p => normKey(p.model, p.storage) === key) || null;
+}
+
+/* Sort key for model+storage that expands "PM" (this shop's Pro Max
+ * shorthand) to "Pro Max" first — otherwise "13 PM" sorts ahead of "13 Pro"
+ * (M < R) instead of after it. */
+export function modelSortKey(model, storage) {
+  return `${model} ${storage}`.replace(/\bPM\b/gi, 'Pro Max');
 }

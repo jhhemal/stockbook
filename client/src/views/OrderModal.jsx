@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api';
 import { Icon, Modal, Select, useConfirm, useToast } from '../ui';
-import { parseOrderText, matchProduct } from '../orderParse';
+import { parseOrderText, matchProduct, modelSortKey } from '../orderParse';
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const NEW_PRODUCT = '__new';
@@ -81,7 +81,9 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     if (cn) setClientName(cn);
     if (gn) setGradeNames([gn]);
     if (bm != null) setBatteryMin(bm);
-    setLines(items.map(it => {
+    const sorted = [...items].sort((a, b) =>
+      modelSortKey(a.model, a.storage).localeCompare(modelSortKey(b.model, b.storage), undefined, { numeric: true, sensitivity: 'base' }));
+    setLines(sorted.map(it => {
       const line = blankLine();
       const match = matchProduct(products, it.model, it.storage);
       if (match) {
