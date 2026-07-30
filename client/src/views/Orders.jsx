@@ -38,14 +38,22 @@ function lineLabel(line) {
   return s;
 }
 
+// A- routinely gets used to fill an A order at this shop, so a line asking
+// for A should also count A- stock as usable toward it (not the reverse).
+function substituteGrades(names) {
+  return names.includes('A') && !names.includes('A-') ? [...names, 'A-'] : names;
+}
+
 /* How much of what this line needs is actually sitting in stock right now —
- * summed across the line's allowed grades, or the product total if any
- * grade will do. null when the product has since been deleted. */
+ * summed across the line's allowed grades (plus any accepted substitutes),
+ * or the product total if any grade will do. null once the product's been
+ * deleted. */
 function lineStock(line, products, grades) {
   const product = products.find(p => p.id === line.productId);
   if (!product) return null;
-  const available = line.grades.length
-    ? line.grades.reduce((n, gname) => {
+  const wanted = substituteGrades(line.grades);
+  const available = wanted.length
+    ? wanted.reduce((n, gname) => {
         const g = grades.find(x => x.name === gname);
         return n + (g ? (product.counts[g.id] || 0) : 0);
       }, 0)
@@ -84,7 +92,7 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved }) {
   const product = products.find(p => p.id === line.productId);
   const stockHint = product
     ? (line.grades.length
-        ? grades.filter(g => line.grades.includes(g.name)).map(g => `${g.name} ${product.counts[g.id] || 0}`).join(' · ')
+        ? grades.filter(g => substituteGrades(line.grades).includes(g.name)).map(g => `${g.name} ${product.counts[g.id] || 0}`).join(' · ')
         : `${product.total} total`)
     : null;
 
