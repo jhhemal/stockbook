@@ -362,7 +362,8 @@ export default function Orders({ me }) {
           <div className="order-card" key={o.id} style={{ borderLeftColor: o.partnerColor }}
             ref={el => { if (el) cardRefs.current.set(o.id, el); else cardRefs.current.delete(o.id); }}>
             <div className="order-head">
-              <div className="order-client">{o.clientName}</div>
+              <div className="order-client" role="button" tabIndex={0} onClick={() => setEditing(o)}
+                onKeyDown={e => e.key === 'Enter' && setEditing(o)}>{o.clientName}</div>
               <span className={`order-progress ${prog.cls}`} title="Units supplied / ordered">{prog.fulfilled}/{prog.ordered}</span>
               {o.isRush && <span className="rush-pill"><Icon name="bolt" size={11} /> Rush</span>}
               {o.status === 'cancelled' && <span className="pill off">cancelled</span>}
@@ -370,7 +371,8 @@ export default function Orders({ me }) {
               <button className="edit-dot card-action" aria-label="Share order as image" onClick={() => shareCardImage(o)}><Icon name="image" /></button>
               <button className="edit-dot card-action" aria-label="Edit order" onClick={() => setEditing(o)}><Icon name="dots" /></button>
             </div>
-            <div className="order-sub">
+            <div className="order-sub" role="button" tabIndex={0} onClick={() => setEditing(o)}
+              onKeyDown={e => e.key === 'Enter' && setEditing(o)}>
               via {o.partnerName}
               {shipByLabel(o) && <> · <span className={shipByOverdue(o) ? 'overdue' : ''}>ship by {shipByLabel(o)}</span></>}
             </div>

@@ -511,7 +511,7 @@ textarea{
 .order-card.capturing .ol-row{display:block}
 .order-card.capturing .ol-name{display:block}
 .order-card.capturing .ol-qty{display:block;text-align:right;margin-top:2px}
-.order-client{font-weight:750;font-size:15.5px;letter-spacing:-.01em;flex:1;min-width:0}
+.order-client{font-weight:750;font-size:15.5px;letter-spacing:-.01em;flex:1;min-width:0;cursor:pointer}
 .rush-pill{
   display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:800;
   text-transform:uppercase;letter-spacing:.03em;color:#fff;background:var(--danger);
@@ -525,7 +525,7 @@ textarea{
 .order-progress.red{color:#DC2626}
 .order-progress.blue{color:#2563EB}
 .order-progress.green{color:#16A34A;background:var(--accent-soft);border-color:transparent}
-.order-sub{font-size:12px;color:var(--ink-3);font-weight:600;margin:2px 0 6px}
+.order-sub{font-size:12px;color:var(--ink-3);font-weight:600;margin:2px 0 6px;cursor:pointer}
 .order-sub .overdue{color:var(--danger)}
 .order-line{
   display:block;width:100%;text-align:left;font-family:var(--font);font-size:inherit;color:inherit;
