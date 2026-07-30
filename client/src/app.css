@@ -504,7 +504,8 @@ textarea{
    line names/badges), trading the side-by-side look for one that can
    never overlap. */
 .order-card.capturing .order-head{display:block}
-.order-card.capturing .order-head > *{display:inline-block;margin:0 6px 4px 0}
+.order-card.capturing .order-client{display:block;margin-bottom:4px}
+.order-card.capturing .order-progress{display:inline-block;margin-right:6px}
 .order-card.capturing .ol-row{display:block}
 .order-card.capturing .ol-name{display:block}
 .order-card.capturing .ol-qty{display:block;text-align:right;margin-top:2px}
@@ -537,12 +538,12 @@ textarea{
 .ol-done{opacity:.55}
 .ol-done .ol-name{text-decoration:line-through}
 .note-badge{
-  display:inline-block;font-size:11px;font-weight:700;letter-spacing:.01em;
+  display:inline-block;white-space:nowrap;font-size:11px;font-weight:700;letter-spacing:.01em;
   padding:2px 8px;border-radius:999px;margin-left:6px;
   background:var(--accent-soft);color:var(--accent-ink);
 }
 .stock-badge{
-  display:inline-block;font-size:11px;font-weight:700;letter-spacing:.01em;
+  display:inline-block;white-space:nowrap;font-size:11px;font-weight:700;letter-spacing:.01em;
   padding:2px 8px;border-radius:999px;margin-left:6px;background:var(--bg);border:1px solid var(--line);
 }
 .stock-badge.green{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
