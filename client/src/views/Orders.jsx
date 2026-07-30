@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { toPng } from 'html-to-image';
 import { api } from '../api';
 import { copyText, Icon, Loading, Modal, Select, useRefetchOnFocus, useToast } from '../ui';
 import { modelSortKey } from '../orderParse';
@@ -259,6 +260,37 @@ export default function Orders({ me }) {
     toast(ok ? 'Update copied — paste in WhatsApp' : 'Copy failed — select the text manually');
   };
 
+  // Renders an order card to a PNG so it can be shared/downloaded looking
+  // exactly like it does on screen — the action icons are excluded (they're
+  // app-only controls, not part of the update a client should see).
+  const cardRefs = useRef(new Map());
+  const shareCardImage = async o => {
+    const node = cardRefs.current.get(o.id);
+    if (!node) return;
+    try {
+      const dataUrl = await toPng(node, {
+        pixelRatio: 2,
+        backgroundColor: '#ffffff',
+        filter: el => !(el.classList && el.classList.contains('card-action')),
+      });
+      const blob = await (await fetch(dataUrl)).blob();
+      const file = new File([blob], `${o.clientName.replace(/\s+/g, '_') || 'order'}.png`, { type: 'image/png' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: o.clientName });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = file.name;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+      toast('Image saved — attach it in WhatsApp');
+    } catch (err) {
+      if (err?.name === 'AbortError') return; // user cancelled the share sheet
+      toast('Could not create the image — try again');
+    }
+  };
+
   const switchTab = t => { setTab(t); setOrders(null); loadOrders(t, partnerFilter); };
   const switchPartner = id => {
     const next = partnerFilter === id ? '' : id;
@@ -313,14 +345,16 @@ export default function Orders({ me }) {
         {visibleOrders.length ? visibleOrders.map(o => {
           const prog = orderProgress(o);
           return (
-          <div className="order-card" key={o.id} style={{ borderLeftColor: o.partnerColor }}>
+          <div className="order-card" key={o.id} style={{ borderLeftColor: o.partnerColor }}
+            ref={el => { if (el) cardRefs.current.set(o.id, el); else cardRefs.current.delete(o.id); }}>
             <div className="order-head">
               <div className="order-client">{o.clientName}</div>
               <span className={`order-progress ${prog.cls}`} title="Units supplied / ordered">{prog.fulfilled}/{prog.ordered}</span>
               {o.isRush && <span className="rush-pill"><Icon name="bolt" size={11} /> Rush</span>}
               {o.status === 'cancelled' && <span className="pill off">cancelled</span>}
-              <button className="edit-dot" aria-label="Copy WhatsApp update" onClick={() => copyOrderReport(o)}><Icon name="wa" /></button>
-              <button className="edit-dot" aria-label="Edit order" onClick={() => setEditing(o)}><Icon name="dots" /></button>
+              <button className="edit-dot card-action" aria-label="Copy WhatsApp update" onClick={() => copyOrderReport(o)}><Icon name="wa" /></button>
+              <button className="edit-dot card-action" aria-label="Share order as image" onClick={() => shareCardImage(o)}><Icon name="image" /></button>
+              <button className="edit-dot card-action" aria-label="Edit order" onClick={() => setEditing(o)}><Icon name="dots" /></button>
             </div>
             <div className="order-sub">
               via {o.partnerName}
