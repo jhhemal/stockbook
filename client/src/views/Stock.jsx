@@ -2,6 +2,14 @@ import { useEffect, useState } from 'react';
 import { api, getStickyAdd } from '../api';
 import { Icon, Loading, Modal, gradeClass, useConfirm, useToast } from '../ui';
 
+function formatUpdated(iso) {
+  const d = iso && new Date(iso);
+  if (!d || isNaN(d)) return null;
+  const sameDay = d.toDateString() === new Date().toDateString();
+  const datePart = sameDay ? 'Today' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return `${datePart}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+}
+
 function ProductModal({ product, grades, onClose, onSaved }) {
   const isNew = !product;
   const toast = useToast();
@@ -142,6 +150,7 @@ export default function Stock({ onReorder }) {
                   <th className="stock-table-sticky">Model</th>
                   {grades.map(g => <th key={g.id}>{g.name}</th>)}
                   <th>Total</th>
+                  <th>Updated</th>
                 </tr>
               </thead>
               <tbody>
@@ -153,6 +162,7 @@ export default function Stock({ onReorder }) {
                       return <td key={g.id} className={c === 0 ? 'zero' : ''}>{c}</td>;
                     })}
                     <td className="stock-table-total">{p.total}</td>
+                    <td className="stock-table-updated">{formatUpdated(p.updatedAt) || '—'}</td>
                   </tr>
                 ))}
               </tbody>
@@ -177,6 +187,7 @@ export default function Stock({ onReorder }) {
                   <button className="edit-dot" aria-label="Edit" onClick={() => setEditing(p)}><Icon name="dots" /></button>
                 </div>
               </div>
+              {formatUpdated(p.updatedAt) && <div className="row-sub" style={{ marginBottom: 8 }}>Updated {formatUpdated(p.updatedAt)}</div>}
               <div className="grade-rows">
                 {grades.map(g => {
                   const c = p.counts[g.id] || 0;

@@ -11,6 +11,7 @@ function productOut(p) {
     id: String(p.id), model: p.model, storage: p.storage, sortOrder: p.sortOrder,
     displayName: p.displayName, counts,
     total: Object.values(counts).reduce((n, q) => n + q, 0),
+    updatedAt: p.updatedAt,
   };
 }
 
