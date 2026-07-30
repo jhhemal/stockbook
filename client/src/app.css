@@ -225,8 +225,13 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 /* ============================================================
    STOCK
    ============================================================ */
-.stock-list{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:start}
+.stock-list{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;align-items:start}
 @media (max-width:768px){.stock-list{grid-template-columns:1fr}}
+.stock-group-title{
+  grid-column:1/-1;font-size:12px;font-weight:800;color:var(--ink-3);
+  text-transform:uppercase;letter-spacing:.05em;margin-top:14px;
+}
+.stock-group-title:first-child{margin-top:0}
 .product{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
   padding:13px 15px;box-shadow:var(--shadow);

@@ -10,6 +10,20 @@ function formatUpdated(iso) {
   return `${datePart}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
 }
 
+/* Group cards by phone generation ("13", "14", "16e", ...) — the leading
+ * number in the model name. Bucketed by key rather than just checking
+ * adjacent items, so a group still renders as one block even if its
+ * products aren't sitting next to each other in the current sort order. */
+function groupProducts(items) {
+  const map = new Map();
+  for (const p of items) {
+    const key = p.model.match(/^\d+/)?.[0] || p.model;
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push(p);
+  }
+  return [...map.entries()];
+}
+
 function ProductModal({ product, grades, onClose, onSaved }) {
   const isNew = !product;
   const toast = useToast();
@@ -181,37 +195,40 @@ export default function Stock({ onReorder }) {
         )
       ) : (
         <div className="stock-list">
-          {items.length ? items.map(p => (
-            <div className="product" key={p.id}>
-              <div className="product-top">
-                <div className="product-name">
-                  {p.model}{p.storage && <span className="storage">{p.storage}</span>}
+          {items.length ? groupProducts(items).flatMap(([key, list]) => [
+            <div className="stock-group-title" key={`h-${key}`}>{key}</div>,
+            ...list.map(p => (
+              <div className="product" key={p.id}>
+                <div className="product-top">
+                  <div className="product-name">
+                    {p.model}{p.storage && <span className="storage">{p.storage}</span>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div className="product-total">{p.total} unit{p.total === 1 ? '' : 's'}</div>
+                    <button className="edit-dot" aria-label="Edit" onClick={() => setEditing(p)}><Icon name="dots" /></button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <div className="product-total">{p.total} unit{p.total === 1 ? '' : 's'}</div>
-                  <button className="edit-dot" aria-label="Edit" onClick={() => setEditing(p)}><Icon name="dots" /></button>
-                </div>
-              </div>
-              {formatUpdated(p.updatedAt) && <div className="row-sub" style={{ marginBottom: 8 }}>Updated {formatUpdated(p.updatedAt)}</div>}
-              <div className="grade-rows">
-                {grades.map(g => {
-                  const c = p.counts[g.id] || 0;
-                  if (c === 0 && !showAll) return null;
-                  return (
-                    <div className="grade-row" key={g.id}>
-                      <span className="grade-label"><span className={`badge ${gradeClass(grades, g.id)}`}>{g.name}</span></span>
-                      <span className={`grade-count ${c === 0 ? 'zero' : ''}`}>{c}</span>
-                      <div className="stepper">
-                        <button className="step-btn" aria-label="Decrease" onClick={() => adjust(p.id, g.id, -1)}>−</button>
-                        <button className="step-btn" aria-label="Increase" onClick={() => adjust(p.id, g.id, 1)}>+</button>
+                {formatUpdated(p.updatedAt) && <div className="row-sub" style={{ marginBottom: 8 }}>Updated {formatUpdated(p.updatedAt)}</div>}
+                <div className="grade-rows">
+                  {grades.map(g => {
+                    const c = p.counts[g.id] || 0;
+                    if (c === 0 && !showAll) return null;
+                    return (
+                      <div className="grade-row" key={g.id}>
+                        <span className="grade-label"><span className={`badge ${gradeClass(grades, g.id)}`}>{g.name}</span></span>
+                        <span className={`grade-count ${c === 0 ? 'zero' : ''}`}>{c}</span>
+                        <div className="stepper">
+                          <button className="step-btn" aria-label="Decrease" onClick={() => adjust(p.id, g.id, -1)}>−</button>
+                          <button className="step-btn" aria-label="Increase" onClick={() => adjust(p.id, g.id, 1)}>+</button>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-                {p.total === 0 && !showAll && <div className="row-sub">Out of stock — open edit to add units</div>}
+                    );
+                  })}
+                  {p.total === 0 && !showAll && <div className="row-sub">Out of stock — open edit to add units</div>}
+                </div>
               </div>
-            </div>
-          )) : (
+            )),
+          ]) : (
             <div className="empty">
               <b>No products found</b>
               <p>{q ? 'Try a different search.' : 'Add your first product to get started.'}</p>
