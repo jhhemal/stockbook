@@ -225,7 +225,8 @@ select option{background:var(--surface);color:var(--ink);padding:8px 12px}
 /* ============================================================
    STOCK
    ============================================================ */
-.stock-list{display:flex;flex-direction:column;gap:9px}
+.stock-list{display:grid;grid-template-columns:1fr 1fr;gap:9px;align-items:start}
+@media (max-width:768px){.stock-list{grid-template-columns:1fr}}
 .product{
   background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
   padding:13px 15px;box-shadow:var(--shadow);
