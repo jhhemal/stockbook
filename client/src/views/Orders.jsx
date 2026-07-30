@@ -85,6 +85,68 @@ function lineStock(line, products, grades) {
   return { entries, cls: usable <= 0 ? 'red' : usable >= remaining ? 'green' : 'blue' };
 }
 
+/* The order-line rows — shared between the grid card and the focused view
+ * popup so the two don't drift out of sync with duplicated markup. */
+function OrderLines({ order, products, grades, onFulfillClick }) {
+  return sortedLines(order.lines).map(l => {
+    const done = l.qtyFulfilled >= l.qtyOrdered;
+    const clickable = order.status !== 'cancelled';
+    const stock = !done ? lineStock(l, products, grades) : null;
+    return (
+      <button type="button" className={`order-line ${done ? 'ol-done' : ''}`} key={l.id}
+        disabled={!clickable}
+        onClick={() => clickable && onFulfillClick(l)}>
+        <div className="ol-row">
+          <span className="ol-name">
+            {lineLabel(l)}
+            {l.note && <span className="note-badge">{l.note}</span>}
+            {stock && (
+              <span className={`stock-badge ${stock.cls}`}>
+                {stock.entries.length
+                  ? stock.entries.map(e => `${e.name}: ${e.qty}`).join(' · ')
+                  : 'Out of stock'}
+              </span>
+            )}
+          </span>
+          <span className="ol-qty">{l.qtyFulfilled}/{l.qtyOrdered}{done ? ' ✓' : ''}</span>
+        </div>
+        <div className="obar">
+          <i className={barClass(l)} style={{ width: `${Math.min(100, (l.qtyFulfilled / l.qtyOrdered) * 100)}%` }}></i>
+        </div>
+      </button>
+    );
+  });
+}
+
+/* Read-only "focus on this order" popup — opened by tapping the client
+ * name/subtitle on a card, as distinct from the 3-dot icon which opens the
+ * actual edit form. Dims the rest of the page via the shared Modal. */
+function OrderViewModal({ order, products, grades, onClose, onEdit, onFulfillClick, onCopyReport, onShareImage }) {
+  const prog = orderProgress(order);
+  return (
+    <Modal title={order.clientName} onClose={onClose}>
+      <div className="fulfill-meta" style={{ marginBottom: 14 }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className={`order-progress ${prog.cls}`}>{prog.fulfilled}/{prog.ordered} supplied</span>
+          {order.isRush && <span className="rush-pill"><Icon name="bolt" size={11} /> Rush</span>}
+          {order.status === 'cancelled' && <span className="pill off">cancelled</span>}
+        </span>
+        <span className="row-sub">
+          via {order.partnerName}
+          {shipByLabel(order) && <> · <span className={shipByOverdue(order) ? 'overdue' : ''}>ship by {shipByLabel(order)}</span></>}
+        </span>
+      </div>
+      <OrderLines order={order} products={products} grades={grades} onFulfillClick={onFulfillClick} />
+      <div className="modal-actions">
+        <button className="btn btn-ghost" onClick={onCopyReport}><Icon name="wa" /></button>
+        <button className="btn btn-ghost" onClick={onShareImage}><Icon name="image" /></button>
+        <button className="btn btn-ghost" onClick={onClose}>Close</button>
+        <button className="btn btn-primary" onClick={onEdit}>Edit</button>
+      </div>
+    </Modal>
+  );
+}
+
 /* WhatsApp-ready status update for one order — what's been supplied so far
  * and what's still owed, so it can be sent whenever the client asks. */
 function orderReportText(order) {
@@ -224,6 +286,7 @@ export default function Orders({ me }) {
   const [rushOnly, setRushOnly] = useState(false);
   const [shipFilter, setShipFilter] = useState('');    // '' | 'today' | 'overdue'
   const [editing, setEditing] = useState(undefined);  // undefined=closed, null=new, obj=edit
+  const [viewing, setViewing] = useState(null);       // order being read-only-viewed, or null
   const [fulfilling, setFulfilling] = useState(null); // { order, line }
   const [loadError, setLoadError] = useState(false);
   const loadSeq = useRef(0);
@@ -366,8 +429,8 @@ export default function Orders({ me }) {
           <div className="order-card" key={o.id} style={{ borderLeftColor: o.partnerColor }}
             ref={el => { if (el) cardRefs.current.set(o.id, el); else cardRefs.current.delete(o.id); }}>
             <div className="order-head">
-              <div className="order-client" role="button" tabIndex={0} onClick={() => setEditing(o)}
-                onKeyDown={e => e.key === 'Enter' && setEditing(o)}>{o.clientName}</div>
+              <div className="order-client" role="button" tabIndex={0} onClick={() => setViewing(o)}
+                onKeyDown={e => e.key === 'Enter' && setViewing(o)}>{o.clientName}</div>
               <span className={`order-progress ${prog.cls}`} title="Units supplied / ordered">{prog.fulfilled}/{prog.ordered}</span>
               {o.isRush && <span className="rush-pill"><Icon name="bolt" size={11} /> Rush</span>}
               {o.status === 'cancelled' && <span className="pill off">cancelled</span>}
@@ -375,41 +438,18 @@ export default function Orders({ me }) {
               <button className="edit-dot card-action" aria-label="Share order as image" onClick={() => shareCardImage(o)}><Icon name="image" /></button>
               <button className="edit-dot card-action" aria-label="Edit order" onClick={() => setEditing(o)}><Icon name="dots" /></button>
             </div>
-            <div className="order-sub" role="button" tabIndex={0} onClick={() => setEditing(o)}
-              onKeyDown={e => e.key === 'Enter' && setEditing(o)}>
+            <div className="order-sub" role="button" tabIndex={0} onClick={() => setViewing(o)}
+              onKeyDown={e => e.key === 'Enter' && setViewing(o)}>
               via {o.partnerName}
               {shipByLabel(o) && <> · <span className={shipByOverdue(o) ? 'overdue' : ''}>ship by {shipByLabel(o)}</span></>}
             </div>
-            {sortedLines(o.lines).map(l => {
-              const done = l.qtyFulfilled >= l.qtyOrdered;
-              const clickable = o.status !== 'cancelled';
-              const stock = !done ? lineStock(l, products, grades) : null;
-              return (
-                <button type="button" className={`order-line ${done ? 'ol-done' : ''}`} key={l.id}
-                  disabled={!clickable}
-                  onClick={() => clickable && setFulfilling({ order: o, line: l })}>
-                  <div className="ol-row">
-                    <span className="ol-name">
-                      {lineLabel(l)}
-                      {l.note && <span className="note-badge">{l.note}</span>}
-                      {stock && (
-                        <span className={`stock-badge ${stock.cls}`}>
-                          {stock.entries.length
-                            ? stock.entries.map(e => `${e.name}: ${e.qty}`).join(' · ')
-                            : 'Out of stock'}
-                        </span>
-                      )}
-                    </span>
-                    <span className="ol-qty">{l.qtyFulfilled}/{l.qtyOrdered}{done ? ' ✓' : ''}</span>
-                  </div>
-                  <div className="obar">
-                    <i className={barClass(l)} style={{ width: `${Math.min(100, (l.qtyFulfilled / l.qtyOrdered) * 100)}%` }}></i>
-                  </div>
-                </button>
-              );
-            })}
+            <OrderLines order={o} products={products} grades={grades}
+              onFulfillClick={l => setFulfilling({ order: o, line: l })} />
             {/* only shown while rendering the shared image — see .card-credit CSS */}
-            <div className="card-credit">StockBook — Developed by hashtrik.</div>
+            <div className="card-credit">
+              <span className="card-credit-mark">S</span>
+              <span>StockBook — Developed by hashtrik.</span>
+            </div>
           </div>
           );
         }) : loadError ? (
@@ -443,6 +483,19 @@ export default function Orders({ me }) {
           onSaved={() => { setFulfilling(null); loadOrders(); }}
           onProductsChanged={refreshProducts} />
       )}
+      {viewing && (() => {
+        // Re-resolve against the live list so a fulfill made while this
+        // stays open (opened on top of it) is reflected immediately.
+        const order = orders.find(o => o.id === viewing.id) || viewing;
+        return (
+          <OrderViewModal order={order} products={products} grades={grades}
+            onClose={() => setViewing(null)}
+            onEdit={() => { setViewing(null); setEditing(order); }}
+            onFulfillClick={l => setFulfilling({ order, line: l })}
+            onCopyReport={() => copyOrderReport(order)}
+            onShareImage={() => shareCardImage(order)} />
+        );
+      })()}
     </>
   );
 }

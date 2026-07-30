@@ -496,8 +496,15 @@ textarea{
    browser actually reflows without these buttons instead of the image
    library trying to prune them after the fact */
 .order-card.capturing .card-action{display:none}
-.card-credit{display:none;font-size:10.5px;color:var(--ink-3);text-align:center;margin-top:10px}
-.order-card.capturing .card-credit{display:block}
+.card-credit{
+  display:none;align-items:center;justify-content:center;gap:6px;
+  font-size:10.5px;color:var(--ink-3);margin-top:10px;
+}
+.order-card.capturing .card-credit{display:flex}
+.card-credit-mark{
+  width:16px;height:16px;border-radius:5px;background:var(--accent);
+  color:#fff;display:grid;place-items:center;font-weight:800;font-size:9px;flex-shrink:0;
+}
 /* The image renderer doesn't recalculate a flex row's height correctly
    when its content wraps to multiple lines — the next element ends up
    drawn at the single-line height, overlapping the wrapped text. Simple
