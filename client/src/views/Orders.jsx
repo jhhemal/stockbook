@@ -448,7 +448,7 @@ export default function Orders({ me }) {
             {/* only shown while rendering the shared image — see .card-credit CSS */}
             <div className="card-credit">
               <span className="card-credit-mark">S</span>
-              <span>StockBook — Developed by hashtrik.</span>
+              <span><b className="card-credit-brand">StockBook</b> — Developed by hashtrik.</span>
             </div>
           </div>
           );
