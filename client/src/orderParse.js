@@ -118,6 +118,14 @@ function extractQty(line) {
   m = line.match(/^(.+?)\s*\((\d+)\)\s*(.*)$/);
   if (m) return { qty: parseInt(m[2], 10), body: m[1], trailingNote: m[3].trim() };
 
+  // Leading "40 13 pro 128" — a bare quantity with no separator at all,
+  // recognizable because the model right after it starts with its own
+  // number (the phone generation). Without this, the fallback below skips
+  // the first token on the assumption it's always the generation, and
+  // picks the generation number itself as the quantity instead.
+  m = line.match(/^(\d+)\s+(\d+.*)$/);
+  if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
+
   const tokens = line.split(/\s+/).filter(Boolean);
   for (let i = tokens.length - 1; i >= 1; i--) {
     if (!/^\d+$/.test(tokens[i])) continue;
