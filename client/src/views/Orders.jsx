@@ -44,22 +44,23 @@ function substituteGrades(names) {
   return names.includes('A') && !names.includes('A-') ? [...names, 'A-'] : names;
 }
 
-/* How much of what this line needs is actually sitting in stock right now —
- * summed across the line's allowed grades (plus any accepted substitutes),
- * or the product total if any grade will do. null once the product's been
- * deleted. */
+/* Per-grade stock breakdown for this line's product (every grade actually
+ * holding stock, not just the ones the order asked for — so staff can see
+ * what else is available to offer as a substitute). null once the product's
+ * been deleted. cls is colored off whether the order's own allowed grades
+ * (plus accepted substitutes) cover what's still needed. */
 function lineStock(line, products, grades) {
   const product = products.find(p => p.id === line.productId);
   if (!product) return null;
+  const entries = grades
+    .map(g => ({ name: g.name, qty: product.counts[g.id] || 0 }))
+    .filter(e => e.qty > 0);
   const wanted = substituteGrades(line.grades);
-  const available = wanted.length
-    ? wanted.reduce((n, gname) => {
-        const g = grades.find(x => x.name === gname);
-        return n + (g ? (product.counts[g.id] || 0) : 0);
-      }, 0)
+  const usable = line.grades.length
+    ? entries.filter(e => wanted.includes(e.name)).reduce((n, e) => n + e.qty, 0)
     : product.total;
   const remaining = Math.max(0, line.qtyOrdered - line.qtyFulfilled);
-  return { available, cls: available <= 0 ? 'red' : available >= remaining ? 'green' : 'blue' };
+  return { entries, cls: usable <= 0 ? 'red' : usable >= remaining ? 'green' : 'blue' };
 }
 
 /* WhatsApp-ready status update for one order — what's been supplied so far
@@ -268,7 +269,9 @@ export default function Orders({ me }) {
                       {l.note && <span className="note-badge">{l.note}</span>}
                       {stock && (
                         <span className={`stock-badge ${stock.cls}`}>
-                          {stock.available > 0 ? `Stock: ${stock.available}` : 'Out of stock'}
+                          {stock.entries.length
+                            ? stock.entries.map(e => `${e.name}: ${e.qty}`).join(' · ')
+                            : 'Out of stock'}
                         </span>
                       )}
                     </span>
