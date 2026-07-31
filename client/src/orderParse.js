@@ -1,16 +1,18 @@
 /* Parses pasted WhatsApp-style order notes. Quantity can show up as a
- * prefix ("2-13 pro 128", "15x 15 pro max 256", "X4 14 pro max 256"), a
- * suffix ("14 x2" / "14PM 256 1x" / "13 pro 128 - 30"), a count in parens
- * ("iPhone 13 Pro 256gb (3)"), or a bare trailing number. Lines with no recognizable
- * quantity at all (footers like "Total 16 pcs", "*banner*" text) are
- * skipped rather than turned into a bogus item. A line with no storage
- * size falls back to 128. If the first line isn't itself an item, it's
- * checked for a trailing grade (e.g. "A-") that then applies to every
- * line below — client name is never guessed from it, since plenty of
- * messages don't include one. A trailing grade/condition shorthand like
- * "AB 90+" (grade code + battery floor), or a "grade A and clean A-"
- * phrase, is pulled into the line's note instead of polluting the model
- * name.
+ * prefix ("2-13 pro 128", "15x 15 pro max 256", "X4 14 pro max 256",
+ * "20) 13 pro 128", "40 13 pro 128"), a suffix ("14 x2" / "14PM 256 1x" /
+ * "13 pro 128 - 30"), a count in parens ("iPhone 13 Pro 256gb (3)"), or a
+ * bare trailing number. Lines with no recognizable quantity at all
+ * (footers like "Total 16 pcs", "*banner*" text) are skipped rather than
+ * turned into a bogus item. A line with no storage size falls back to
+ * 128. A Spanish "A y B" ("13 pro Max 128 y 256") offers two sizes at
+ * once and becomes two items sharing the same quantity. If the first
+ * line isn't itself an item, it's checked for a trailing grade (e.g.
+ * "A-") that then applies to every line below — client name is never
+ * guessed from it, since plenty of messages don't include one. A trailing
+ * grade/condition shorthand like "AB 90+" (grade code + battery floor),
+ * or a "grade A and clean A-" phrase, is pulled into the line's note
+ * instead of polluting the model name.
  */
 const STORAGE_SIZES = new Set([16, 32, 64, 128, 256, 512, 1024]);
 
@@ -94,6 +96,11 @@ function extractQty(line) {
   let m = line.match(/^(\d+)\s*[-–]\s*(.+)$/);
   if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
 
+  // Leading "20) 13 pro 128" — outline-style numbering, a bare ")" with no
+  // matching "(" (the real parens-count format below requires both).
+  m = line.match(/^(\d+)\)\s*(.+)$/);
+  if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
+
   // Trailing "13 pro 128 - 30" — dash then quantity at the very end. Without
   // this the bare-number fallback below still finds the 30, but leaves the
   // dash stuck onto the body ("13 pro 128 -"), corrupting the model name.
@@ -161,6 +168,19 @@ function extractCondition(tokens, gradeSet) {
   return { rest: tokens.slice(0, -1), gradeCode: '', looseCode: '', batteryPct };
 }
 
+/* A line can offer two sizes at once via Spanish "y" ("and"), e.g.
+ * "13 pro Max 128 y 256" meaning both variants are available. Splits that
+ * into two body strings, one per size, with the "A y B" segment replaced
+ * by just A or just B — everything else in the line stays put. Returns
+ * null when there's no such pattern (the normal, single-size case). */
+function splitDualStorage(body) {
+  const m = body.match(/\b(\d{2,4})\s*(?:gb)?\s+y\s+(\d{2,4})\s*(?:gb)?\b/i);
+  if (!m) return null;
+  const before = body.slice(0, m.index);
+  const after = body.slice(m.index + m[0].length);
+  return [`${before}${m[1]}${after}`.replace(/\s+/g, ' ').trim(), `${before}${m[2]}${after}`.replace(/\s+/g, ' ').trim()];
+}
+
 /* @param grades - [{name}] from the API, used to recognize a header grade suffix.
  * Client name is never auto-filled — messages don't always include one, and
  * guessing wrong is worse than leaving it blank for the user to type. */
@@ -207,23 +227,29 @@ export function parseOrderText(text, grades) {
       note = note ? `${note}, ${gnote}` : gnote;
     }
 
-    body = body.replace(/(\d)(pm)\b/gi, '$1 $2'); // "14PM" -> "14 PM"
-    let tokens = body.split(/\s+/).filter(Boolean).filter(t => !IGNORED_WORDS.has(t.toLowerCase()));
-    if (!tokens.length) continue;
+    // "128 y 256" -> two variants of this same line (same qty/note each);
+    // otherwise just the one body, unchanged.
+    const bodyVariants = splitDualStorage(body) || [body];
+    for (let variant of bodyVariants) {
+      variant = variant.replace(/(\d)(pm)\b/gi, '$1 $2'); // "14PM" -> "14 PM"
+      let tokens = variant.split(/\s+/).filter(Boolean).filter(t => !IGNORED_WORDS.has(t.toLowerCase()));
+      if (!tokens.length) continue;
 
-    const colorIdx = tokens.findIndex(t => COLOR_WORDS.has(t.toLowerCase()));
-    if (colorIdx !== -1) {
-      const color = titleCase(tokens[colorIdx]);
-      note = note ? `${note}, ${color}` : color;
-      tokens = [...tokens.slice(0, colorIdx), ...tokens.slice(colorIdx + 1)];
+      let lineNote = note;
+      const colorIdx = tokens.findIndex(t => COLOR_WORDS.has(t.toLowerCase()));
+      if (colorIdx !== -1) {
+        const color = titleCase(tokens[colorIdx]);
+        lineNote = lineNote ? `${lineNote}, ${color}` : color;
+        tokens = [...tokens.slice(0, colorIdx), ...tokens.slice(colorIdx + 1)];
+      }
+
+      tokens = mergeStorageUnit(tokens);
+      const { storage, rest: rest0 } = extractStorage(tokens);
+      const { rest, gradeCode, looseCode, batteryPct } = extractCondition(rest0, gradeSet);
+      if (!rest.length) continue;
+      const model = titleCase(rest.join(' ')).replace(/\bPm\b/g, 'PM');
+      raw.push({ model, storage: storage || DEFAULT_STORAGE, qty, note: lineNote, gradeCode, looseCode, batteryPct });
     }
-
-    tokens = mergeStorageUnit(tokens);
-    const { storage, rest: rest0 } = extractStorage(tokens);
-    const { rest, gradeCode, looseCode, batteryPct } = extractCondition(rest0, gradeSet);
-    if (!rest.length) continue;
-    const model = titleCase(rest.join(' ')).replace(/\bPm\b/g, 'PM');
-    raw.push({ model, storage: storage || DEFAULT_STORAGE, qty, note, gradeCode, looseCode, batteryPct });
   }
 
   // A grade code shared by every line (e.g. "AB" on every row) is promoted
