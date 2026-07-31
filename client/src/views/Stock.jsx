@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api, getStickyAdd } from '../api';
-import { Icon, Loading, Modal, gradeClass, useConfirm, useToast } from '../ui';
+import { Icon, Loading, Modal, Select, gradeClass, useConfirm, useToast } from '../ui';
 import { formatStorage } from '../orderParse';
+import { parseCsv, aggregateImportRows } from '../csvImport';
 
 function formatUpdated(iso) {
   const d = iso && new Date(iso);
@@ -99,6 +100,82 @@ function ProductModal({ product, grades, onClose, onSaved }) {
   );
 }
 
+function ImportModal({ grades, onClose, onImported }) {
+  const toast = useToast();
+  const [fileName, setFileName] = useState('');
+  const [items, setItems] = useState(null); // null until a file's been parsed
+  const [skipped, setSkipped] = useState(0);
+  const [gradeId, setGradeId] = useState(grades[0]?.id || '');
+  const [busy, setBusy] = useState(false);
+
+  const onFile = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFileName(file.name);
+    setItems(null);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const raw = String(reader.result || '');
+      const text = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
+      const { items: agg, skipped: sk } = aggregateImportRows(parseCsv(text));
+      setItems(agg);
+      setSkipped(sk);
+      if (!agg.length) toast('No recognizable rows found in that file');
+    };
+    reader.onerror = () => toast('Could not read that file');
+    reader.readAsText(file);
+  };
+
+  const totalUnits = items ? items.reduce((n, it) => n + it.qty, 0) : 0;
+
+  const confirm = async () => {
+    if (!gradeId) { toast('Pick a grade for the imported stock'); return; }
+    if (!items?.length) return;
+    setBusy(true);
+    try {
+      const result = await api.post('/api/products/import', { grade_id: gradeId, items });
+      toast(`Added ${result.totalUnits} unit${result.totalUnits === 1 ? '' : 's'} — ${result.created} new product${result.created === 1 ? '' : 's'}, ${result.updated} updated`);
+      onImported(result.products);
+      onClose();
+    } catch (err) { toast(err.message); setBusy(false); }
+  };
+
+  return (
+    <Modal title="Import purchase CSV" onClose={onClose}>
+      <div className="field full">
+        <label>CSV file</label>
+        <input type="file" accept=".csv,text/csv" onChange={onFile} />
+      </div>
+      {items && items.length > 0 && (
+        <>
+          <div className="field full">
+            <label>Grade</label>
+            <Select value={gradeId} onChange={setGradeId} options={grades.map(g => ({ value: g.id, label: g.name }))} />
+          </div>
+          <div className="row-sub" style={{ margin: '10px 0' }}>
+            {fileName} — {items.length} product{items.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'} total
+            {skipped > 0 && `, ${skipped} row${skipped === 1 ? '' : 's'} skipped (unrecognized)`}
+          </div>
+          <div className="row-list" style={{ maxHeight: 240, overflowY: 'auto', marginBottom: 6 }}>
+            {items.map((it, i) => (
+              <div className="mv-item" key={i}>
+                <span>{it.model} {formatStorage(it.storage)}</span>
+                <span className="mv-meta">×{it.qty}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      <div className="modal-actions">
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" disabled={busy || !items?.length} onClick={confirm}>
+          {busy ? 'Importing…' : 'Import'}
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 export default function Stock({ onReorder }) {
   const toast = useToast();
   const [products, setProducts] = useState(null);
@@ -107,6 +184,7 @@ export default function Stock({ onReorder }) {
   const [showAll, setShowAll] = useState(false);
   const [view, setView] = useState('cards'); // cards | table
   const [editing, setEditing] = useState(undefined); // undefined=closed, null=new, obj=edit
+  const [importing, setImporting] = useState(false);
 
   const load = async () => {
     try {
@@ -142,6 +220,7 @@ export default function Stock({ onReorder }) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn btn-ghost" onClick={() => setImporting(true)}><Icon name="upload" /> Import CSV</button>
           <button className="btn btn-ghost" onClick={onReorder}><Icon name="grip" /> Reorder</button>
           <button className={`btn btn-primary ${getStickyAdd() ? 'add-fab' : ''}`} onClick={() => setEditing(null)} aria-label="Add product">
             <Icon name="plus" /> <span className="add-fab-label">Add product</span>
@@ -249,6 +328,11 @@ export default function Stock({ onReorder }) {
         <ProductModal product={editing} grades={grades}
           onClose={() => setEditing(undefined)}
           onSaved={() => { setEditing(undefined); load(); }} />
+      )}
+      {importing && (
+        <ImportModal grades={grades}
+          onClose={() => setImporting(false)}
+          onImported={setProducts} />
       )}
     </>
   );

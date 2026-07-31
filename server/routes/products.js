@@ -57,6 +57,44 @@ router.post('/reorder', async (req, res) => {
   res.json(ordered.map(productOut));
 });
 
+/* POST /api/products/import — bulk stock-in from a purchase CSV, already
+ * aggregated client-side into { model, storage, qty } per product/storage.
+ * Matches existing products (creating any that don't exist yet) and adds
+ * qty to the given grade's count, logging one movement per item. */
+router.post('/import', async (req, res) => {
+  const { grade_id, items } = req.body || {};
+  const grade = grade_id ? await models.Grade.findByPk(grade_id) : null;
+  if (!grade) return res.status(422).json({ detail: 'Pick a grade for the imported stock' });
+  if (!Array.isArray(items) || !items.length) return res.status(422).json({ detail: 'No items to import' });
+
+  let created = 0, updated = 0, totalUnits = 0;
+  const movements = [];
+  for (const it of items) {
+    const model = String(it?.model || '').trim();
+    const storage = String(it?.storage || '').trim();
+    const qty = Math.max(0, parseInt(it?.qty) || 0);
+    if (!model || !qty) continue;
+
+    let product = await models.Product.findOne({ where: { model, storage } });
+    if (!product) {
+      const sortOrder = await models.Product.count();
+      product = await models.Product.create({ model, storage, sortOrder, counts: {} });
+      created++;
+    } else {
+      updated++;
+    }
+    const key = String(grade.id);
+    product.counts = { ...product.counts, [key]: (product.counts?.[key] || 0) + qty };
+    await product.save();
+    movements.push({ productName: product.displayName, gradeName: grade.name, change: qty, reason: 'import', username: req.user.username });
+    totalUnits += qty;
+  }
+  if (movements.length) await models.StockMovement.bulkCreate(movements);
+
+  const products = await models.Product.findAll({ order: [['sortOrder', 'ASC'], ['id', 'ASC']] });
+  res.json({ created, updated, totalUnits, products: products.map(productOut) });
+});
+
 router.patch('/:id', async (req, res) => {
   const p = await models.Product.findByPk(req.params.id);
   if (!p) return res.status(404).json({ detail: 'Product not found' });
