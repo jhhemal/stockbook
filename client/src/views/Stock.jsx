@@ -100,12 +100,18 @@ function ProductModal({ product, grades, onClose, onSaved }) {
   );
 }
 
+// CSV purchases are always brand-new stock, so only the condition grades
+// that apply to new units are offered here — not cosmetic/used-phone
+// grades like "Z" or "Dots" that might also exist in the full grade list.
+const IMPORT_GRADES = ['a', 'a-', 'ab', 'b', 'genuine'];
+
 function ImportModal({ grades, onClose, onImported }) {
   const toast = useToast();
+  const importGrades = grades.filter(g => IMPORT_GRADES.includes(g.name.toLowerCase()));
   const [fileName, setFileName] = useState('');
   const [items, setItems] = useState(null); // null until a file's been parsed
   const [skipped, setSkipped] = useState(0);
-  const [gradeId, setGradeId] = useState(grades[0]?.id || '');
+  const [gradeId, setGradeId] = useState(importGrades[0]?.id || '');
   const [busy, setBusy] = useState(false);
 
   const onFile = e => {
@@ -150,7 +156,7 @@ function ImportModal({ grades, onClose, onImported }) {
         <>
           <div className="field full">
             <label>Grade</label>
-            <Select value={gradeId} onChange={setGradeId} options={grades.map(g => ({ value: g.id, label: g.name }))} />
+            <Select value={gradeId} onChange={setGradeId} options={importGrades.map(g => ({ value: g.id, label: g.name }))} />
           </div>
           <div className="row-sub" style={{ margin: '10px 0' }}>
             {fileName} — {items.length} product{items.length === 1 ? '' : 's'} · {totalUnits} unit{totalUnits === 1 ? '' : 's'} total
