@@ -121,7 +121,25 @@ function defineModels(sequelize) {
   OrderLine.belongsTo(Order, { foreignKey: 'orderId' });
   Order.belongsTo(Partner, { foreignKey: 'partnerId', as: 'partner' });
 
-  return { User, Grade, Product, Sale, StockMovement, Partner, Order, OrderLine };
+  // A manual, independent phone count (e.g. a weekly count reported to
+  // whoever asks) — deliberately not tied to Product.counts at all, since
+  // it's tracking a separate physical count, not adjusting owned stock.
+  const CountSession = sequelize.define('CountSession', {
+    note: { type: DataTypes.STRING(200), allowNull: true },
+    username: { type: DataTypes.STRING(50), allowNull: false, defaultValue: '' },
+  }, { timestamps: true, updatedAt: false });
+
+  const CountLine = sequelize.define('CountLine', {
+    sessionId: { type: DataTypes.INTEGER, allowNull: false },
+    productId: { type: DataTypes.INTEGER, allowNull: true },        // null after product delete
+    productName: { type: DataTypes.STRING(120), allowNull: false }, // snapshot
+    qty: { type: DataTypes.INTEGER, allowNull: false, defaultValue: 0 },
+  }, { timestamps: false, indexes: [{ fields: ['sessionId'] }] });
+
+  CountSession.hasMany(CountLine, { foreignKey: 'sessionId', as: 'lines' });
+  CountLine.belongsTo(CountSession, { foreignKey: 'sessionId' });
+
+  return { User, Grade, Product, Sale, StockMovement, Partner, Order, OrderLine, CountSession, CountLine };
 }
 
 const DEFAULT_GRADES = ['A', 'A-', 'AB', 'B', 'Z', 'Genuine'];

@@ -5,6 +5,7 @@ import Orders from './views/Orders';
 import Stock from './views/Stock';
 import Sales from './views/Sales';
 import Report from './views/Report';
+import Count from './views/Count';
 import Settings from './views/Settings';
 import Reorder from './views/Reorder';
 
@@ -12,6 +13,7 @@ const TABS = [
   { key: 'orders', label: 'Orders' },
   { key: 'stock', label: 'Stock' },
   { key: 'grades', label: 'Grades' },
+  { key: 'count', label: 'Count' },
   { key: 'sales', label: 'Sales' },
   { key: 'report', label: 'Report' },
   { key: 'settings', label: 'Settings' },
@@ -91,6 +93,7 @@ export default function App() {
     orders: <Orders me={user} />,
     stock: <Stock onReorder={() => setView('reorder')} />,
     grades: <Stock onReorder={() => setView('reorder')} initialView="table" />,
+    count: <Count />,
     sales: <Sales />,
     report: <Report />,
     settings: <Settings me={user} />,

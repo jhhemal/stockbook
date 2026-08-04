@@ -7,6 +7,7 @@ const products = require('./routes/products');
 const sales = require('./routes/sales');
 const reports = require('./routes/reports');
 const orders = require('./routes/orders');
+const counts = require('./routes/counts');
 
 const app = express();
 app.use(express.json());
@@ -32,6 +33,7 @@ app.use('/api/orders', orders);
 app.use('/api/products', products);
 app.use('/api/sales', sales);
 app.use('/api/reports', reports);
+app.use('/api/counts', counts);
 
 // error handler
 app.use((err, req, res, next) => {
