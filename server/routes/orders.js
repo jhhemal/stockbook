@@ -28,6 +28,7 @@ const orderOut = o => ({
   shipByValue: o.shipByValue,
   completedAt: o.completedAt,
   createdAt: o.createdAt,
+  shelfWritten: o.shelfWritten,
   lines: (o.lines || []).map(lineOut),
 });
 
@@ -162,6 +163,7 @@ router.patch('/:id', async (req, res) => {
     order.status = req.body.status;
     order.completedAt = req.body.status === 'completed' ? new Date() : null;
   }
+  if (req.body?.shelf_written !== undefined) order.shelfWritten = !!req.body.shelf_written;
   await order.save();
   res.json(orderOut(await loadOrder(order.id)));
 });

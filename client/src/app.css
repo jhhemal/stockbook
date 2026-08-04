@@ -496,6 +496,7 @@ textarea{
    browser actually reflows without these buttons instead of the image
    library trying to prune them after the fact */
 .order-card.capturing .card-action{display:none}
+.order-card.capturing .shelf-check{display:none}
 .card-credit{
   display:none;align-items:center;justify-content:center;gap:6px;
   font-size:10.5px;color:var(--ink-3);margin-top:10px;
@@ -534,6 +535,11 @@ textarea{
 .order-progress.blue{color:#2563EB}
 .order-progress.green{color:#16A34A;background:var(--accent-soft);border-color:transparent}
 .order-sub{font-size:12px;color:var(--ink-3);font-weight:600;margin:2px 0 6px;cursor:pointer}
+.shelf-check{
+  display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;
+  color:var(--ink-2);margin:0 0 8px;cursor:pointer;user-select:none;
+}
+.shelf-check input{width:15px;height:15px;accent-color:var(--accent);cursor:pointer}
 .order-sub .overdue{color:var(--danger)}
 .order-line{
   display:block;width:100%;text-align:left;font-family:var(--font);font-size:inherit;color:inherit;

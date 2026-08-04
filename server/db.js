@@ -105,6 +105,7 @@ function defineModels(sequelize) {
     shipByType: { type: DataTypes.STRING(10), allowNull: true },          // date | day
     shipByValue: { type: DataTypes.STRING(20), allowNull: true },         // ISO date or weekday name
     completedAt: { type: DataTypes.DATE, allowNull: true },
+    shelfWritten: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: false }, // client name written on the shelf yet?
   }, { indexes: [{ fields: ['status'] }] });
 
   const OrderLine = sequelize.define('OrderLine', {

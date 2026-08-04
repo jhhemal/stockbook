@@ -121,7 +121,7 @@ function OrderLines({ order, products, grades, onFulfillClick }) {
 /* Read-only "focus on this order" popup — opened by tapping the client
  * name/subtitle on a card, as distinct from the 3-dot icon which opens the
  * actual edit form. Dims the rest of the page via the shared Modal. */
-function OrderViewModal({ order, products, grades, onClose, onEdit, onFulfillClick, onCopyReport, onShareImage }) {
+function OrderViewModal({ order, products, grades, isPartner, onClose, onEdit, onFulfillClick, onCopyReport, onShareImage, onToggleShelf }) {
   const prog = orderProgress(order);
   return (
     <Modal title={order.clientName} onClose={onClose}>
@@ -135,6 +135,12 @@ function OrderViewModal({ order, products, grades, onClose, onEdit, onFulfillCli
           via {order.partnerName}
           {shipByLabel(order) && <> · <span className={shipByOverdue(order) ? 'overdue' : ''}>ship by {shipByLabel(order)}</span></>}
         </span>
+        {!isPartner && (
+          <label className="shelf-check">
+            <input type="checkbox" checked={!!order.shelfWritten} onChange={onToggleShelf} />
+            Written on shelf
+          </label>
+        )}
       </div>
       <OrderLines order={order} products={products} grades={grades} onFulfillClick={onFulfillClick} />
       <div className="modal-actions">
@@ -286,6 +292,7 @@ export default function Orders({ me }) {
   const [partnerFilter, setPartnerFilter] = useState('');
   const [rushOnly, setRushOnly] = useState(false);
   const [shipFilter, setShipFilter] = useState('');    // '' | 'today' | 'overdue'
+  const [shelfFilter, setShelfFilter] = useState(false); // true = show only "not written" orders
   const [editing, setEditing] = useState(undefined);  // undefined=closed, null=new, obj=edit
   const [viewing, setViewing] = useState(null);       // order being read-only-viewed, or null
   const [fulfilling, setFulfilling] = useState(null); // { order, line }
@@ -330,6 +337,13 @@ export default function Orders({ me }) {
   const copyOrderReport = async o => {
     const ok = await copyText(orderReportText(o));
     toast(ok ? 'Update copied — paste in WhatsApp' : 'Copy failed — select the text manually');
+  };
+
+  const toggleShelf = async o => {
+    try {
+      const updated = await api.patch(`/api/orders/${o.id}`, { shelf_written: !o.shelfWritten });
+      setOrders(os => os.map(x => (x.id === o.id ? updated : x)));
+    } catch (err) { toast(err.message); }
   };
 
   // Renders an order card to a PNG so it can be shared/downloaded looking
@@ -391,8 +405,9 @@ export default function Orders({ me }) {
   const visibleOrders = orders.filter(o =>
     (!rushOnly || o.isRush) &&
     (shipFilter !== 'today' || shipsToday(o)) &&
-    (shipFilter !== 'overdue' || shipByOverdue(o)));
-  const filtersActive = rushOnly || shipFilter;
+    (shipFilter !== 'overdue' || shipByOverdue(o)) &&
+    (!shelfFilter || !o.shelfWritten));
+  const filtersActive = rushOnly || shipFilter || shelfFilter;
 
   return (
     <>
@@ -425,6 +440,11 @@ export default function Orders({ me }) {
           onClick={() => setShipFilter(f => (f === 'today' ? '' : 'today'))}>Ship today</button>
         <button className={`chip ${shipFilter === 'overdue' ? 'selected' : ''}`}
           onClick={() => setShipFilter(f => (f === 'overdue' ? '' : 'overdue'))}>Overdue</button>
+        {!isPartner && (
+          <button className={`chip ${shelfFilter ? 'selected' : ''}`} onClick={() => setShelfFilter(s => !s)}>
+            Not written
+          </button>
+        )}
       </div>
 
       <div className="orders-grid">
@@ -448,6 +468,12 @@ export default function Orders({ me }) {
               via {o.partnerName}
               {shipByLabel(o) && <> · <span className={shipByOverdue(o) ? 'overdue' : ''}>ship by {shipByLabel(o)}</span></>}
             </div>
+            {!isPartner && (
+              <label className="shelf-check">
+                <input type="checkbox" checked={!!o.shelfWritten} onChange={() => toggleShelf(o)} />
+                Written on shelf
+              </label>
+            )}
             <OrderLines order={o} products={products} grades={grades}
               onFulfillClick={l => setFulfilling({ order: o, line: l })} />
             {/* only shown while rendering the shared image — see .card-credit CSS */}
@@ -465,7 +491,7 @@ export default function Orders({ me }) {
         ) : filtersActive ? (
           <div className="empty" style={{ gridColumn: '1/-1' }}>
             <b>No orders match those filters</b>
-            <p><button className="btn btn-ghost btn-sm" onClick={() => { setRushOnly(false); setShipFilter(''); }}>Clear filters</button></p>
+            <p><button className="btn btn-ghost btn-sm" onClick={() => { setRushOnly(false); setShipFilter(''); setShelfFilter(false); }}>Clear filters</button></p>
           </div>
         ) : (
           <div className="empty" style={{ gridColumn: '1/-1' }}>
@@ -493,12 +519,13 @@ export default function Orders({ me }) {
         // stays open (opened on top of it) is reflected immediately.
         const order = orders.find(o => o.id === viewing.id) || viewing;
         return (
-          <OrderViewModal order={order} products={products} grades={grades}
+          <OrderViewModal order={order} products={products} grades={grades} isPartner={isPartner}
             onClose={() => setViewing(null)}
             onEdit={() => { setViewing(null); setEditing(order); }}
             onFulfillClick={l => setFulfilling({ order, line: l })}
             onCopyReport={() => copyOrderReport(order)}
-            onShareImage={() => shareCardImage(order)} />
+            onShareImage={() => shareCardImage(order)}
+            onToggleShelf={() => toggleShelf(order)} />
         );
       })()}
     </>
