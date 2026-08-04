@@ -19,6 +19,45 @@ function formatSessionDate(iso) {
   return new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+/* Lightweight add — just enough to get a missing model into the list so
+ * its count can be entered right away, unlike Stock's full product form
+ * (which also asks for starting grade counts, irrelevant here). */
+function QuickAddProduct({ onClose, onAdded }) {
+  const toast = useToast();
+  const [model, setModel] = useState('');
+  const [storage, setStorage] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const save = async () => {
+    if (!model.trim()) { toast('Model name is required'); return; }
+    setBusy(true);
+    try {
+      const p = await api.post('/api/products', { model: model.trim(), storage: storage.trim(), counts: {} });
+      toast('Product added');
+      onAdded(p);
+    } catch (err) { toast(err.message); setBusy(false); }
+  };
+
+  return (
+    <Modal title="Add product" onClose={onClose}>
+      <div className="form-grid">
+        <div className="field full">
+          <label>Model</label>
+          <input value={model} onChange={e => setModel(e.target.value)} placeholder="e.g. 17 Pro" autoFocus />
+        </div>
+        <div className="field full">
+          <label>Storage <span style={{ textTransform: 'none', fontWeight: 500, color: 'var(--ink-3)' }}>(optional)</span></label>
+          <input value={storage} onChange={e => setStorage(e.target.value)} placeholder="e.g. 256" />
+        </div>
+      </div>
+      <div className="modal-actions">
+        <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+        <button className="btn btn-primary" disabled={busy} onClick={save}>Add</button>
+      </div>
+    </Modal>
+  );
+}
+
 function HistoryModal({ session, onClose, onDeleted }) {
   const toast = useToast();
   const confirm = useConfirm();
@@ -62,6 +101,7 @@ export default function Count() {
   const [counts, setCounts] = useState({}); // productId -> raw input string
   const [busy, setBusy] = useState(false);
   const [viewing, setViewing] = useState(null); // a history session, or null
+  const [addingProduct, setAddingProduct] = useState(false);
 
   const load = async () => {
     try {
@@ -128,6 +168,9 @@ export default function Count() {
               <Icon name="search" />
               <input placeholder="Search model…" value={search} onChange={e => setSearch(e.target.value)} />
             </div>
+            <button type="button" className="btn btn-ghost btn-sm" style={{ marginBottom: 10 }} onClick={() => setAddingProduct(true)}>
+              <Icon name="plus" /> Model missing? Add it
+            </button>
             <div className="row-list" style={{ maxHeight: 320, overflowY: 'auto' }}>
               {items.map(p => (
                 <div className="mv-item" key={p.id}>
@@ -169,6 +212,14 @@ export default function Count() {
       {viewing && (
         <HistoryModal session={viewing} onClose={() => setViewing(null)}
           onDeleted={() => { setViewing(null); load(); }} />
+      )}
+      {addingProduct && (
+        <QuickAddProduct onClose={() => setAddingProduct(false)}
+          onAdded={p => {
+            setAddingProduct(false);
+            setProducts(ps => [...ps, p]);
+            setSearch(p.displayName);
+          }} />
       )}
     </>
   );
