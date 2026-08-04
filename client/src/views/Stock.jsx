@@ -182,13 +182,13 @@ function ImportModal({ grades, onClose, onImported }) {
   );
 }
 
-export default function Stock({ onReorder }) {
+export default function Stock({ onReorder, initialView = 'cards' }) {
   const toast = useToast();
   const [products, setProducts] = useState(null);
   const [grades, setGrades] = useState([]);
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);
-  const [view, setView] = useState('cards'); // cards | table
+  const [view, setView] = useState(initialView); // cards | table
   const [editing, setEditing] = useState(undefined); // undefined=closed, null=new, obj=edit
   const [importing, setImporting] = useState(false);
 

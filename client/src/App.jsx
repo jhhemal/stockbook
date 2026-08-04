@@ -11,6 +11,7 @@ import Reorder from './views/Reorder';
 const TABS = [
   { key: 'orders', label: 'Orders' },
   { key: 'stock', label: 'Stock' },
+  { key: 'grades', label: 'Grades' },
   { key: 'sales', label: 'Sales' },
   { key: 'report', label: 'Report' },
   { key: 'settings', label: 'Settings' },
@@ -89,6 +90,7 @@ export default function App() {
   const views = {
     orders: <Orders me={user} />,
     stock: <Stock onReorder={() => setView('reorder')} />,
+    grades: <Stock onReorder={() => setView('reorder')} initialView="table" />,
     sales: <Sales />,
     report: <Report />,
     settings: <Settings me={user} />,
