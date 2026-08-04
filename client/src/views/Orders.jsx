@@ -136,10 +136,12 @@ function OrderViewModal({ order, products, grades, isPartner, onClose, onEdit, o
           {shipByLabel(order) && <> · <span className={shipByOverdue(order) ? 'overdue' : ''}>ship by {shipByLabel(order)}</span></>}
         </span>
         {!isPartner && (
-          <label className="shelf-check">
-            <input type="checkbox" checked={!!order.shelfWritten} onChange={onToggleShelf} />
-            Written on shelf
-          </label>
+          <div className="shelf-toggle">
+            <span className="switch">
+              <input type="checkbox" checked={!!order.shelfWritten} onChange={onToggleShelf} /><i></i>
+            </span>
+            {order.shelfWritten && <span className="shelf-toggle-label">Written on shelf</span>}
+          </div>
         )}
       </div>
       <OrderLines order={order} products={products} grades={grades} onFulfillClick={onFulfillClick} />
@@ -469,10 +471,12 @@ export default function Orders({ me }) {
               {shipByLabel(o) && <> · <span className={shipByOverdue(o) ? 'overdue' : ''}>ship by {shipByLabel(o)}</span></>}
             </div>
             {!isPartner && (
-              <label className="shelf-check">
-                <input type="checkbox" checked={!!o.shelfWritten} onChange={() => toggleShelf(o)} />
-                Written on shelf
-              </label>
+              <div className="shelf-toggle">
+                <span className="switch">
+                  <input type="checkbox" checked={!!o.shelfWritten} onChange={() => toggleShelf(o)} /><i></i>
+                </span>
+                {o.shelfWritten && <span className="shelf-toggle-label">Written on shelf</span>}
+              </div>
             )}
             <OrderLines order={o} products={products} grades={grades}
               onFulfillClick={l => setFulfilling({ order: o, line: l })} />
