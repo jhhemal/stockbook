@@ -15,6 +15,10 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use((req, res, next) => {
+  if (req.user.role === 'partner') return res.status(403).json({ detail: 'Not available for partner accounts' });
+  next();
+});
 
 router.get('/stock', async (req, res) => {
   const allGrades = await models.Grade.findAll({ order: [['sortOrder', 'ASC'], ['id', 'ASC']] });

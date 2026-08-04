@@ -73,21 +73,23 @@ function PartnerModal({ partner, onClose, onSaved }) {
   );
 }
 
-function UserModal({ user, me, onClose, onSaved }) {
+function UserModal({ user, me, partners, onClose, onSaved }) {
   const isNew = !user;
   const toast = useToast();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState(user?.role || 'staff');
+  const [partnerId, setPartnerId] = useState(user?.partnerId || '');
   const [isActive, setIsActive] = useState(user?.isActive ?? true);
   const save = async () => {
+    if (role === 'partner' && !partnerId) { toast('Pick which partner this login belongs to'); return; }
     try {
       if (isNew) {
         if (!username.trim() || !password) { toast('Username and password are required'); return; }
-        await api.post('/api/users', { username, password, role });
+        await api.post('/api/users', { username, password, role, partner_id: partnerId || undefined });
         toast('User added');
       } else {
-        const body = { role };
+        const body = { role, partner_id: partnerId || undefined };
         if (password) body.password = password;
         if (user.id !== me.id) body.isActive = isActive;
         await api.patch(`/api/users/${user.id}`, body);
@@ -115,9 +117,21 @@ function UserModal({ user, me, onClose, onSaved }) {
             <select value={role} onChange={e => setRole(e.target.value)}>
               <option value="staff">Staff</option>
               <option value="admin">Admin</option>
+              <option value="partner">Partner</option>
             </select>
           </div>
         </div>
+        {role === 'partner' && (
+          <div className="field">
+            <label>Which partner</label>
+            <div className="select-wrap">
+              <select value={partnerId} onChange={e => setPartnerId(e.target.value)}>
+                <option value="">Choose…</option>
+                {partners.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+          </div>
+        )}
         {!isNew && user.id !== me.id && (
           <div className="field">
             <label>Status</label>
@@ -276,7 +290,9 @@ export default function Settings({ me }) {
                 <div className="row-item" key={u.id}>
                   <div className="row-main">
                     {u.username}
-                    <div className="row-sub">{u.isActive ? 'Active' : 'Disabled'}</div>
+                    <div className="row-sub">
+                      {u.isActive ? 'Active' : 'Disabled'}{u.partnerName && ` · ${u.partnerName}`}
+                    </div>
                   </div>
                   <span className={`pill ${u.role === 'admin' ? 'admin' : ''}`}>{u.role}</span>
                   {!u.isActive && <span className="pill off">off</span>}
@@ -319,7 +335,7 @@ export default function Settings({ me }) {
           onSaved={() => { setGradeModal(undefined); load(); }} />
       )}
       {userModal !== undefined && (
-        <UserModal user={userModal} me={me} onClose={() => setUserModal(undefined)}
+        <UserModal user={userModal} me={me} partners={partners} onClose={() => setUserModal(undefined)}
           onSaved={() => { setUserModal(undefined); load(); }} />
       )}
       {partnerModal !== undefined && (

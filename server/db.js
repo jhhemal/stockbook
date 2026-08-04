@@ -52,8 +52,9 @@ function defineModels(sequelize) {
   const User = sequelize.define('User', {
     username: { type: DataTypes.STRING(50), allowNull: false, unique: true },
     passwordHash: { type: DataTypes.STRING, allowNull: false },
-    role: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'staff' }, // admin | staff
+    role: { type: DataTypes.STRING(20), allowNull: false, defaultValue: 'staff' }, // admin | staff | partner
     isActive: { type: DataTypes.BOOLEAN, allowNull: false, defaultValue: true },
+    partnerId: { type: DataTypes.INTEGER, allowNull: true }, // set only when role = 'partner'
   });
 
   const Grade = sequelize.define('Grade', {
@@ -120,6 +121,7 @@ function defineModels(sequelize) {
   Order.hasMany(OrderLine, { foreignKey: 'orderId', as: 'lines' });
   OrderLine.belongsTo(Order, { foreignKey: 'orderId' });
   Order.belongsTo(Partner, { foreignKey: 'partnerId', as: 'partner' });
+  User.belongsTo(Partner, { foreignKey: 'partnerId', as: 'partner' });
 
   // A manual, independent phone count (e.g. a weekly count reported to
   // whoever asks) — deliberately not tied to Product.counts at all, since

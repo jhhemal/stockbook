@@ -19,6 +19,10 @@ const TABS = [
   { key: 'settings', label: 'Settings' },
 ];
 
+// A partner login sees their own orders and can browse stock (read-only)
+// to know what's orderable — nothing else (mirrors what the server allows).
+const PARTNER_TAB_KEYS = ['orders', 'stock'];
+
 function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -89,9 +93,12 @@ export default function App() {
   if (booting) return <Loading />;
   if (!user) return <Login onLogin={setUser} />;
 
+  const isPartner = user.role === 'partner';
+  const tabs = isPartner ? TABS.filter(t => PARTNER_TAB_KEYS.includes(t.key)) : TABS;
+
   const views = {
     orders: <Orders me={user} />,
-    stock: <Stock onReorder={() => setView('reorder')} />,
+    stock: <Stock onReorder={() => setView('reorder')} readOnly={isPartner} />,
     grades: <Stock onReorder={() => setView('reorder')} initialView="table" />,
     count: <Count />,
     sales: <Sales />,
@@ -109,7 +116,7 @@ export default function App() {
             <div className="brand-mark">S</div>
             <div className="brand-name">StockBook</div>
           </div>
-          {TABS.map(t => (
+          {tabs.map(t => (
             <button key={t.key} className={`nav-btn ${activeTab === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
               <Icon name={t.key} /> {t.label}
             </button>
@@ -146,7 +153,7 @@ export default function App() {
           the tabbar already owns the bottom of the screen */}
       <div className="credit credit-fixed">Developed by hashtrik.</div>
       <nav className="tabbar">
-        {TABS.map(t => (
+        {tabs.map(t => (
           <button key={t.key} className={`tab-btn ${activeTab === t.key ? 'active' : ''}`} onClick={() => setView(t.key)}>
             <span className="tab-ic"><Icon name={t.key} /></span>{t.label}
           </button>

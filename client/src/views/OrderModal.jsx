@@ -46,10 +46,11 @@ function commonBatteryMin(orderLines) {
 
 export default function OrderModal({ order, me, partners, products, grades, onClose, onSaved, onRefresh, onProductsChanged }) {
   const isNew = !order;
+  const isPartner = me.role === 'partner';
   const toast = useToast();
   const confirm = useConfirm();
   const [clientName, setClientName] = useState(order?.clientName || '');
-  const [partnerId, setPartnerId] = useState(order?.partnerId || partners[0]?.id || '');
+  const [partnerId, setPartnerId] = useState(order?.partnerId || (isPartner ? me.partnerId : partners[0]?.id) || '');
   const [isRush, setIsRush] = useState(order?.isRush || false);
   const [gradeNames, setGradeNames] = useState(() => (order ? commonGrades(order.lines) : []));
   const [batteryMin, setBatteryMin] = useState(() => (order ? commonBatteryMin(order.lines) : ''));
@@ -266,10 +267,12 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
           <label>Client name</label>
           <input value={clientName} onChange={e => setClientName(e.target.value)} placeholder="e.g. CV Juan #1" />
         </div>
-        <div className="field">
-          <label>Partner</label>
-          <Select value={partnerId} onChange={setPartnerId} options={partners.map(p => ({ value: p.id, label: p.name }))} />
-        </div>
+        {!isPartner && (
+          <div className="field">
+            <label>Partner</label>
+            <Select value={partnerId} onChange={setPartnerId} options={partners.map(p => ({ value: p.id, label: p.name }))} />
+          </div>
+        )}
         <div className="field full">
           <label>Grade</label>
           <div className="seg">

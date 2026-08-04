@@ -5,6 +5,14 @@ const { requireAuth } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
+// A partner can see stock (read-only) but never edit it directly — the
+// only way stock moves for them is as a side effect of fulfilling their
+// own order, handled entirely within the orders route.
+function blockPartner(req, res, next) {
+  if (req.user.role === 'partner') return res.status(403).json({ detail: 'Read-only access' });
+  next();
+}
+
 function productOut(p) {
   const counts = p.counts || {};
   return {
@@ -20,7 +28,7 @@ router.get('/', async (req, res) => {
   res.json(products.map(productOut));
 });
 
-router.post('/', async (req, res) => {
+router.post('/', blockPartner, async (req, res) => {
   const model = (req.body?.model || '').trim();
   const storage = (req.body?.storage || '').trim();
   if (!model) return res.status(422).json({ detail: 'Model name is required' });
@@ -46,7 +54,7 @@ router.post('/', async (req, res) => {
   res.status(201).json(productOut(p));
 });
 
-router.post('/reorder', async (req, res) => {
+router.post('/reorder', blockPartner, async (req, res) => {
   const ids = req.body?.order;
   if (!Array.isArray(ids) || !ids.length) return res.status(422).json({ detail: 'order must be a non-empty array of product ids' });
   const products = await models.Product.findAll({ where: { id: ids } });
@@ -61,7 +69,7 @@ router.post('/reorder', async (req, res) => {
  * aggregated client-side into { model, storage, qty } per product/storage.
  * Matches existing products (creating any that don't exist yet) and adds
  * qty to the given grade's count, logging one movement per item. */
-router.post('/import', async (req, res) => {
+router.post('/import', blockPartner, async (req, res) => {
   const { grade_id, items } = req.body || {};
   const grade = grade_id ? await models.Grade.findByPk(grade_id) : null;
   if (!grade) return res.status(422).json({ detail: 'Pick a grade for the imported stock' });
@@ -95,7 +103,7 @@ router.post('/import', async (req, res) => {
   res.json({ created, updated, totalUnits, products: products.map(productOut) });
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', blockPartner, async (req, res) => {
   const p = await models.Product.findByPk(req.params.id);
   if (!p) return res.status(404).json({ detail: 'Product not found' });
   if (req.body?.model !== undefined) p.model = req.body.model.trim();
@@ -105,7 +113,7 @@ router.patch('/:id', async (req, res) => {
   res.json(productOut(p));
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', blockPartner, async (req, res) => {
   const p = await models.Product.findByPk(req.params.id);
   if (!p) return res.status(404).json({ detail: 'Product not found' });
   await p.destroy();
@@ -134,11 +142,11 @@ async function changeStock(req, res, computeNewQty) {
 }
 
 /* Quick +/- correction, logged as 'adjust' */
-router.post('/:id/adjust', (req, res) =>
+router.post('/:id/adjust', blockPartner, (req, res) =>
   changeStock(req, res, current => current + (parseInt(req.body?.change) || 0)));
 
 /* Set an exact quantity (edit form) */
-router.post('/:id/set', (req, res) =>
+router.post('/:id/set', blockPartner, (req, res) =>
   changeStock(req, res, () => Math.max(0, parseInt(req.body?.qty) || 0)));
 
 module.exports = router;

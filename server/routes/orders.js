@@ -48,6 +48,12 @@ function loadOrder(id) {
   });
 }
 
+// A 'partner' user only ever gets to touch orders placed under their own
+// Partner record — true here means "allowed" (not a partner, or it's theirs).
+function ownsOrder(req, partnerId) {
+  return req.user.role !== 'partner' || String(partnerId) === String(req.user.partnerId);
+}
+
 /* Validate one incoming line body -> OrderLine fields (throws {status, detail}) */
 async function buildLine(body) {
   const qty = parseInt(body?.qty);
@@ -77,11 +83,14 @@ async function syncStatus(orderId) {
   }
 }
 
-/* GET /api/orders?status=active|done&partner_id=N — rush first, newest first */
+/* GET /api/orders?status=active|done&partner_id=N — rush first, newest first.
+ * A partner is always pinned to their own partnerId, ignoring the query
+ * param, so they can't page through another partner's orders by editing it. */
 router.get('/', async (req, res) => {
   const where = {};
   where.status = req.query.status === 'done' ? { [Op.in]: ['completed', 'cancelled'] } : 'active';
-  if (req.query.partner_id) where.partnerId = req.query.partner_id;
+  if (req.user.role === 'partner') where.partnerId = req.user.partnerId;
+  else if (req.query.partner_id) where.partnerId = req.query.partner_id;
   const orders = await models.Order.findAll({
     where,
     include: include(),
@@ -93,11 +102,14 @@ router.get('/', async (req, res) => {
   res.json(orders.map(orderOut));
 });
 
-/* POST /api/orders — { clientName, partner_id, isRush, shipByType, shipByValue, lines: [{product_id, grades, battery_min, qty}] } */
+/* POST /api/orders — { clientName, partner_id, isRush, shipByType, shipByValue, lines: [{product_id, grades, battery_min, qty}] }
+ * A partner can only ever create orders under their own Partner record —
+ * partner_id is forced rather than trusted from the body. */
 router.post('/', async (req, res) => {
   const clientName = (req.body?.clientName || '').trim();
   if (!clientName) return res.status(422).json({ detail: 'Client name is required' });
-  const partner = await models.Partner.findByPk(req.body?.partner_id);
+  const partnerId = req.user.role === 'partner' ? req.user.partnerId : req.body?.partner_id;
+  const partner = await models.Partner.findByPk(partnerId);
   if (!partner) return res.status(404).json({ detail: 'Partner not found' });
   const rawLines = req.body?.lines;
   if (!Array.isArray(rawLines) || !rawLines.length) {
@@ -124,13 +136,14 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   const order = await models.Order.findByPk(req.params.id);
   if (!order) return res.status(404).json({ detail: 'Order not found' });
+  if (!ownsOrder(req, order.partnerId)) return res.status(403).json({ detail: 'Not your order' });
 
   if (req.body?.clientName !== undefined) {
     const name = req.body.clientName.trim();
     if (!name) return res.status(422).json({ detail: 'Client name is required' });
     order.clientName = name;
   }
-  if (req.body?.partner_id !== undefined) {
+  if (req.body?.partner_id !== undefined && req.user.role !== 'partner') {
     const partner = await models.Partner.findByPk(req.body.partner_id);
     if (!partner) return res.status(404).json({ detail: 'Partner not found' });
     order.partnerId = partner.id;
@@ -166,6 +179,7 @@ router.delete('/:id', requireAdmin, async (req, res) => {
 router.post('/:id/lines', async (req, res) => {
   const order = await models.Order.findByPk(req.params.id);
   if (!order) return res.status(404).json({ detail: 'Order not found' });
+  if (!ownsOrder(req, order.partnerId)) return res.status(403).json({ detail: 'Not your order' });
   let line;
   try { line = await buildLine(req.body); }
   catch (err) { return res.status(err.status || 500).json({ detail: err.detail || 'Invalid line' }); }
@@ -176,6 +190,9 @@ router.post('/:id/lines', async (req, res) => {
 
 /* PATCH /api/orders/:id/lines/:lineId — edit grades / battery_min / note / qty_ordered */
 router.patch('/:id/lines/:lineId', async (req, res) => {
+  const order = await models.Order.findByPk(req.params.id);
+  if (!order) return res.status(404).json({ detail: 'Order not found' });
+  if (!ownsOrder(req, order.partnerId)) return res.status(403).json({ detail: 'Not your order' });
   const line = await models.OrderLine.findOne({ where: { id: req.params.lineId, orderId: req.params.id } });
   if (!line) return res.status(404).json({ detail: 'Order line not found' });
   if (req.body?.grades !== undefined) {
@@ -200,6 +217,9 @@ router.patch('/:id/lines/:lineId', async (req, res) => {
 
 /* DELETE /api/orders/:id/lines/:lineId */
 router.delete('/:id/lines/:lineId', async (req, res) => {
+  const order = await models.Order.findByPk(req.params.id);
+  if (!order) return res.status(404).json({ detail: 'Order not found' });
+  if (!ownsOrder(req, order.partnerId)) return res.status(403).json({ detail: 'Not your order' });
   const line = await models.OrderLine.findOne({ where: { id: req.params.lineId, orderId: req.params.id } });
   if (!line) return res.status(404).json({ detail: 'Order line not found' });
   const orderId = line.orderId;
@@ -208,12 +228,40 @@ router.delete('/:id/lines/:lineId', async (req, res) => {
   res.json(orderOut(await loadOrder(orderId)));
 });
 
-/* POST /api/orders/:id/lines/:lineId/fulfill — { qty } positive adds, negative corrects; clamped */
+/* POST /api/orders/:id/lines/:lineId/fulfill — { qty, deduct_grade_id? }
+ * qty: positive adds, negative corrects; clamped to [0, qtyOrdered].
+ * deduct_grade_id: when given (and qty > 0), that many units are also
+ * subtracted from the product's stock for that grade, in the same request —
+ * done server-side rather than trusting a separate client call to the
+ * general stock-adjust endpoint, since a partner is allowed to fulfill
+ * (and thus deduct stock for) their own order but must never be able to
+ * adjust stock directly/arbitrarily. */
 router.post('/:id/lines/:lineId/fulfill', async (req, res) => {
+  const order = await models.Order.findByPk(req.params.id);
+  if (!order) return res.status(404).json({ detail: 'Order not found' });
+  if (!ownsOrder(req, order.partnerId)) return res.status(403).json({ detail: 'Not your order' });
   const line = await models.OrderLine.findOne({ where: { id: req.params.lineId, orderId: req.params.id } });
   if (!line) return res.status(404).json({ detail: 'Order line not found' });
   const delta = parseInt(req.body?.qty);
   if (!delta) return res.status(422).json({ detail: 'Quantity is required' });
+
+  const deductGradeId = req.body?.deduct_grade_id;
+  if (deductGradeId && delta > 0) {
+    const product = line.productId ? await models.Product.findByPk(line.productId) : null;
+    const grade = await models.Grade.findByPk(deductGradeId);
+    if (!product || !grade) return res.status(404).json({ detail: 'Product or grade not found for stock deduction' });
+    const key = String(grade.id);
+    const current = product.counts?.[key] || 0;
+    const newQty = current - delta;
+    if (newQty < 0) return res.status(422).json({ detail: `Not enough stock to deduct (currently ${current})` });
+    product.counts = { ...product.counts, [key]: newQty };
+    await product.save();
+    await models.StockMovement.create({
+      productName: product.displayName, gradeName: grade.name,
+      change: -delta, reason: 'order_fulfill', username: req.user.username,
+    });
+  }
+
   line.qtyFulfilled = Math.min(line.qtyOrdered, Math.max(0, line.qtyFulfilled + delta));
   await line.save();
   await syncStatus(line.orderId);

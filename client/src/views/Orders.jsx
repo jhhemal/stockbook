@@ -203,12 +203,16 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved, onProdu
         await api.patch(`/api/orders/${order.id}/lines/${line.id}`,
           { qty_ordered: qtyOrdered, note });
       }
-      if (fromStock && delta > 0) {
-        await api.post(`/api/products/${line.productId}/adjust`, { grade_id: stockGradeId, change: -delta });
-        onProductsChanged?.();
-      }
       if (delta) {
-        await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, { qty: delta });
+        // The stock deduction (when requested) happens server-side as part
+        // of this same call — a partner is allowed to fulfill (and thus
+        // deduct stock for) their own order, but must never be able to
+        // call the general stock-adjust endpoint directly.
+        await api.post(`/api/orders/${order.id}/lines/${line.id}/fulfill`, {
+          qty: delta,
+          ...(fromStock && delta > 0 ? { deduct_grade_id: stockGradeId } : {}),
+        });
+        if (fromStock && delta > 0) onProductsChanged?.();
       }
       toast('Updated');
       onSaved();
@@ -272,6 +276,7 @@ function FulfillModal({ order, line, products, grades, onClose, onSaved, onProdu
 }
 
 export default function Orders({ me }) {
+  const isPartner = me.role === 'partner';
   const toast = useToast();
   const [orders, setOrders] = useState(null);
   const [partners, setPartners] = useState([]);
@@ -305,8 +310,12 @@ export default function Orders({ me }) {
   useEffect(() => {
     (async () => {
       try {
+        // A partner login can't see /api/partners (it's everyone else's
+        // business relationships) — they only ever need their own, and
+        // that's already embedded in each order (partnerName/partnerColor).
         const [pt, p, g] = await Promise.all([
-          api.get('/api/partners'), api.get('/api/products'), api.get('/api/grades'),
+          isPartner ? Promise.resolve([]) : api.get('/api/partners'),
+          api.get('/api/products'), api.get('/api/grades'),
         ]);
         setPartners(pt); setProducts(p); setGrades(g);
         await loadOrders();

@@ -7,6 +7,10 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use((req, res, next) => {
+  if (req.user.role === 'partner') return res.status(403).json({ detail: 'Not available for partner accounts' });
+  next();
+});
 
 function include() {
   return [{ model: models.CountLine, as: 'lines' }];

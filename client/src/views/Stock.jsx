@@ -182,7 +182,7 @@ function ImportModal({ grades, onClose, onImported }) {
   );
 }
 
-export default function Stock({ onReorder, initialView = 'cards' }) {
+export default function Stock({ onReorder, initialView = 'cards', readOnly = false }) {
   const toast = useToast();
   const [products, setProducts] = useState(null);
   const [grades, setGrades] = useState([]);
@@ -201,6 +201,7 @@ export default function Stock({ onReorder, initialView = 'cards' }) {
   useEffect(() => { load(); }, []);
 
   const adjust = async (pid, gid, d) => {
+    if (readOnly) return;
     try {
       const updated = await api.post(`/api/products/${pid}/adjust`, { grade_id: gid, change: d });
       setProducts(ps => ps.map(p => (p.id === pid ? updated : p)));
@@ -221,17 +222,19 @@ export default function Stock({ onReorder, initialView = 'cards' }) {
         <div>
           <div className="page-title">Stock</div>
           <div className="page-sub">
-            Tap + / − to adjust counts
+            {readOnly ? 'Browse current stock' : 'Tap + / − to adjust counts'}
             {formatUpdated(lastUpdated) && ` · Last updated ${formatUpdated(lastUpdated)}`}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-ghost" onClick={() => setImporting(true)}><Icon name="upload" /> Import CSV</button>
-          <button className="btn btn-ghost" onClick={onReorder}><Icon name="grip" /> Reorder</button>
-          <button className={`btn btn-primary ${getStickyAdd() ? 'add-fab' : ''}`} onClick={() => setEditing(null)} aria-label="Add product">
-            <Icon name="plus" /> <span className="add-fab-label">Add product</span>
-          </button>
-        </div>
+        {!readOnly && (
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn btn-ghost" onClick={() => setImporting(true)}><Icon name="upload" /> Import CSV</button>
+            <button className="btn btn-ghost" onClick={onReorder}><Icon name="grip" /> Reorder</button>
+            <button className={`btn btn-primary ${getStickyAdd() ? 'add-fab' : ''}`} onClick={() => setEditing(null)} aria-label="Add product">
+              <Icon name="plus" /> <span className="add-fab-label">Add product</span>
+            </button>
+          </div>
+        )}
       </div>
       <div className="stats">
         <div className="stat"><b>{totalUnits}</b><span>Units in stock</span></div>
@@ -260,7 +263,7 @@ export default function Stock({ onReorder, initialView = 'cards' }) {
               </thead>
               <tbody>
                 {items.map(p => (
-                  <tr key={p.id} onClick={() => setEditing(p)}>
+                  <tr key={p.id} onClick={readOnly ? undefined : () => setEditing(p)} style={readOnly ? { cursor: 'default' } : undefined}>
                     <td className="stock-table-sticky">{p.displayName}</td>
                     {grades.map(g => {
                       const c = p.counts[g.id] || 0;
@@ -291,7 +294,9 @@ export default function Stock({ onReorder, initialView = 'cards' }) {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <div className="product-total">{p.total} unit{p.total === 1 ? '' : 's'}</div>
-                    <button className="edit-dot" aria-label="Edit" onClick={() => setEditing(p)}><Icon name="dots" /></button>
+                    {!readOnly && (
+                      <button className="edit-dot" aria-label="Edit" onClick={() => setEditing(p)}><Icon name="dots" /></button>
+                    )}
                   </div>
                 </div>
                 {formatUpdated(p.updatedAt) && <div className="row-sub" style={{ marginBottom: 8 }}>Updated {formatUpdated(p.updatedAt)}</div>}
@@ -303,14 +308,18 @@ export default function Stock({ onReorder, initialView = 'cards' }) {
                       <div className="grade-row" key={g.id}>
                         <span className="grade-label"><span className={`badge ${gradeClass(grades, g.id)}`}>{g.name}</span></span>
                         <span className={`grade-count ${c === 0 ? 'zero' : ''}`}>{c}</span>
-                        <div className="stepper">
-                          <button className="step-btn" aria-label="Decrease" onClick={() => adjust(p.id, g.id, -1)}>−</button>
-                          <button className="step-btn" aria-label="Increase" onClick={() => adjust(p.id, g.id, 1)}>+</button>
-                        </div>
+                        {!readOnly && (
+                          <div className="stepper">
+                            <button className="step-btn" aria-label="Decrease" onClick={() => adjust(p.id, g.id, -1)}>−</button>
+                            <button className="step-btn" aria-label="Increase" onClick={() => adjust(p.id, g.id, 1)}>+</button>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
-                  {p.total === 0 && !showAll && <div className="row-sub">Out of stock — open edit to add units</div>}
+                  {p.total === 0 && !showAll && (
+                    <div className="row-sub">{readOnly ? 'Out of stock' : 'Out of stock — open edit to add units'}</div>
+                  )}
                 </div>
               </div>
             )),

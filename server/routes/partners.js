@@ -5,6 +5,14 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const router = express.Router();
 router.use(requireAuth);
 
+// A partner only needs their own name/color, already embedded in their
+// orders — the full partner list (everyone else's business relationships)
+// is out of scope for them.
+router.use((req, res, next) => {
+  if (req.user.role === 'partner') return res.status(403).json({ detail: 'Not available for partner accounts' });
+  next();
+});
+
 const partnerOut = p => ({ id: String(p.id), name: p.name, color: p.color, sortOrder: p.sortOrder });
 
 router.get('/', async (req, res) => {

@@ -4,6 +4,10 @@ const { requireAuth } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(requireAuth);
+router.use((req, res, next) => {
+  if (req.user.role === 'partner') return res.status(403).json({ detail: 'Not available for partner accounts' });
+  next();
+});
 
 const saleOut = s => ({
   id: String(s.id), productId: s.productId ? String(s.productId) : null,
