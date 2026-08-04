@@ -128,6 +128,21 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     toast(`Parsed ${items.length} line${items.length === 1 ? '' : 's'} — review before saving`);
   };
 
+  /* Quick start for a manual order: add every catalog product at qty 1,
+   * then delete/adjust whichever weren't actually ordered — faster than
+   * repeating Add line -> search -> pick for a big order. Skips products
+   * already on the form instead of duplicating them. */
+  const addAllProducts = () => {
+    setLines(ls => {
+      const already = new Set(ls.filter(l => l.productId && l.productId !== NEW_PRODUCT).map(l => l.productId));
+      const additions = products.filter(p => !already.has(p.id)).map(p => ({ ...blankLine(), productId: p.id, qty: 1 }));
+      if (!additions.length) return ls;
+      const base = ls.length === 1 && !ls[0].productId ? [] : ls; // drop the lone still-blank starter line
+      return resortLines([...base, ...additions], products);
+    });
+    toast("Added every product — remove what isn't ordered");
+  };
+
   const shipBody = () => ({
     shipByType: shipMode === 'none' ? null : shipMode,
     shipByValue: shipMode === 'date' ? shipDate : shipMode === 'day' ? shipDay : null,
@@ -226,9 +241,14 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     <Modal title={isNew ? 'New order' : `Edit ${order.clientName}`} onClose={requestClose}>
       {isNew && (
         <div style={{ marginBottom: 16 }}>
-          <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPaste(s => !s)}>
-            <Icon name="plus" /> Paste from WhatsApp
-          </button>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPaste(s => !s)}>
+              <Icon name="plus" /> Paste from WhatsApp
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={addAllProducts}>
+              <Icon name="plus" /> Add all products
+            </button>
+          </div>
           {showPaste && (
             <div style={{ marginTop: 8 }}>
               <textarea rows={7} value={pasteText} onChange={e => setPasteText(e.target.value)}
