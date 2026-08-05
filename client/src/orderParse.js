@@ -12,7 +12,9 @@
  * guessed from it, since plenty of messages don't include one. A trailing
  * grade/condition shorthand like "AB 90+" (grade code + battery floor),
  * or a "grade A and clean A-" phrase, is pulled into the line's note
- * instead of polluting the model name.
+ * instead of polluting the model name. A model+storage line with no
+ * quantity of its own pairs with a "qty- note" line right after it (e.g.
+ * "14 128gb" / "5- mix"), taking that quantity and folding the note text in.
  */
 const STORAGE_SIZES = new Set([16, 32, 64, 128, 256, 512, 1024]);
 
@@ -191,7 +193,16 @@ export function parseOrderText(text, grades) {
   let gradeName = '';
   let itemLines = rawLines;
 
-  if (!extractQty(rawLines[0])) {
+  // A model+storage line with no quantity of its own is only a stray header
+  // when the very next line isn't its paired "qty- note" continuation (see
+  // below) — otherwise the first phone in a "14 128gb / 5- mix" style list
+  // would get mistaken for a grade header and silently dropped.
+  const pairsWithNext = (line, next) => {
+    const nextParsed = next && extractQty(next);
+    return !!nextParsed && !/\d/.test(nextParsed.body);
+  };
+
+  if (!extractQty(rawLines[0]) && !pairsWithNext(rawLines[0], rawLines[1])) {
     const header = rawLines[0];
     const sortedGrades = [...grades].sort((a, b) => b.name.length - a.name.length);
     for (const g of sortedGrades) {
@@ -204,9 +215,24 @@ export function parseOrderText(text, grades) {
   const gradeSet = new Map(grades.map(g => [g.name.toLowerCase(), g.name]));
 
   const raw = [];
-  for (const line of itemLines) {
-    const parsed = extractQty(line);
-    if (!parsed) continue; // no quantity marker — header/footer/banner text, not an item
+  for (let i = 0; i < itemLines.length; i++) {
+    const line = itemLines[i];
+    let parsed = extractQty(line);
+    if (!parsed) {
+      // No quantity on this line — check whether it's a headerless
+      // model+storage line whose quantity/note live on the next line
+      // instead, e.g. "14 128gb" followed by "5- mix". The next line only
+      // counts as that pairing (rather than an unrelated standalone item)
+      // when its own body has no digits, i.e. it reads as a plain note.
+      const next = itemLines[i + 1];
+      if (pairsWithNext(line, next)) {
+        const nextParsed = extractQty(next);
+        parsed = { qty: nextParsed.qty, body: line, trailingNote: nextParsed.body };
+        i++; // consumed as this item's quantity/note
+      } else {
+        continue; // header/footer/banner text, not an item
+      }
+    }
     let { qty, body, trailingNote } = parsed;
     let note = trailingNote ? capitalize(trailingNote) : '';
 
