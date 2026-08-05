@@ -52,6 +52,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   const [clientName, setClientName] = useState(order?.clientName || '');
   const [partnerId, setPartnerId] = useState(order?.partnerId || (isPartner ? me.partnerId : partners[0]?.id) || '');
   const [isRush, setIsRush] = useState(order?.isRush || false);
+  const [shelfWritten, setShelfWritten] = useState(order?.shelfWritten || false);
   const [gradeNames, setGradeNames] = useState(() => (order ? commonGrades(order.lines) : []));
   const [batteryMin, setBatteryMin] = useState(() => (order ? commonBatteryMin(order.lines) : ''));
   const [shipMode, setShipMode] = useState(order?.shipByType || 'none'); // none | date | day
@@ -77,7 +78,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
   useEffect(() => {
     if (mounted.current) setDirty(true);
     else mounted.current = true;
-  }, [clientName, partnerId, isRush, gradeNames, batteryMin, shipMode, shipDate, shipDay, lines, removedIds]);
+  }, [clientName, partnerId, isRush, shelfWritten, gradeNames, batteryMin, shipMode, shipDate, shipDay, lines, removedIds]);
 
   const requestClose = async () => {
     if (dirty && !await confirm({
@@ -181,7 +182,7 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
         await api.post('/api/orders', body);
         toast('Order created');
       } else {
-        await api.patch(`/api/orders/${order.id}`, { clientName, partner_id: partnerId, isRush, ...shipBody() });
+        await api.patch(`/api/orders/${order.id}`, { clientName, partner_id: partnerId, isRush, shelf_written: shelfWritten, ...shipBody() });
 
         // Each line is its own request; one failing (e.g. a transient network
         // blip) shouldn't stop the rest from saving or leave the Orders list
@@ -302,6 +303,17 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
             </span>
           </div>
         </div>
+        {!isNew && !isPartner && (
+          <div className="field">
+            <label>Shelf</label>
+            <div className="toggle-row" style={{ border: 'none', padding: '8px 0 0', margin: 0 }}>
+              <span style={{ fontSize: 13 }}>Written on shelf</span>
+              <span className="switch">
+                <input type="checkbox" checked={shelfWritten} onChange={e => setShelfWritten(e.target.checked)} /><i></i>
+              </span>
+            </div>
+          </div>
+        )}
         <div className="field full">
           <label>Ship by</label>
           <div className="seg" style={{ marginBottom: 8 }}>

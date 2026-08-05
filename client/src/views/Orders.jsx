@@ -121,7 +121,7 @@ function OrderLines({ order, products, grades, onFulfillClick }) {
 /* Read-only "focus on this order" popup — opened by tapping the client
  * name/subtitle on a card, as distinct from the 3-dot icon which opens the
  * actual edit form. Dims the rest of the page via the shared Modal. */
-function OrderViewModal({ order, products, grades, isPartner, onClose, onEdit, onFulfillClick, onCopyReport, onShareImage, onToggleShelf }) {
+function OrderViewModal({ order, products, grades, isPartner, onClose, onEdit, onFulfillClick, onCopyReport, onShareImage }) {
   const prog = orderProgress(order);
   return (
     <Modal title={order.clientName} onClose={onClose}>
@@ -135,12 +135,9 @@ function OrderViewModal({ order, products, grades, isPartner, onClose, onEdit, o
           via {order.partnerName}
           {shipByLabel(order) && <> · <span className={shipByOverdue(order) ? 'overdue' : ''}>ship by {shipByLabel(order)}</span></>}
         </span>
-        {!isPartner && (
+        {!isPartner && order.shelfWritten && (
           <div className="shelf-toggle">
-            <span className="switch">
-              <input type="checkbox" checked={!!order.shelfWritten} onChange={onToggleShelf} /><i></i>
-            </span>
-            {order.shelfWritten && <span className="shelf-toggle-label">Written on shelf</span>}
+            <span className="shelf-toggle-label">Written on shelf</span>
           </div>
         )}
       </div>
@@ -341,13 +338,6 @@ export default function Orders({ me }) {
     toast(ok ? 'Update copied — paste in WhatsApp' : 'Copy failed — select the text manually');
   };
 
-  const toggleShelf = async o => {
-    try {
-      const updated = await api.patch(`/api/orders/${o.id}`, { shelf_written: !o.shelfWritten });
-      setOrders(os => os.map(x => (x.id === o.id ? updated : x)));
-    } catch (err) { toast(err.message); }
-  };
-
   // Renders an order card to a PNG so it can be shared/downloaded looking
   // exactly like it does on screen — the action icons are excluded (they're
   // app-only controls, not part of the update a client should see).
@@ -470,12 +460,9 @@ export default function Orders({ me }) {
               via {o.partnerName}
               {shipByLabel(o) && <> · <span className={shipByOverdue(o) ? 'overdue' : ''}>ship by {shipByLabel(o)}</span></>}
             </div>
-            {!isPartner && (
+            {!isPartner && o.shelfWritten && (
               <div className="shelf-toggle">
-                <span className="switch">
-                  <input type="checkbox" checked={!!o.shelfWritten} onChange={() => toggleShelf(o)} /><i></i>
-                </span>
-                {o.shelfWritten && <span className="shelf-toggle-label">Written on shelf</span>}
+                <span className="shelf-toggle-label">Written on shelf</span>
               </div>
             )}
             <OrderLines order={o} products={products} grades={grades}
@@ -528,8 +515,7 @@ export default function Orders({ me }) {
             onEdit={() => { setViewing(null); setEditing(order); }}
             onFulfillClick={l => setFulfilling({ order, line: l })}
             onCopyReport={() => copyOrderReport(order)}
-            onShareImage={() => shareCardImage(order)}
-            onToggleShelf={() => toggleShelf(order)} />
+            onShareImage={() => shareCardImage(order)} />
         );
       })()}
     </>
