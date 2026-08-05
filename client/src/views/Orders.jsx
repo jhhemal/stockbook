@@ -135,7 +135,7 @@ function OrderViewModal({ order, products, grades, isPartner, onClose, onEdit, o
           via {order.partnerName}
           {shipByLabel(order) && <> · <span className={shipByOverdue(order) ? 'overdue' : ''}>ship by {shipByLabel(order)}</span></>}
         </span>
-        {!isPartner && order.shelfWritten && (
+        {order.shelfWritten && (
           <div className="shelf-toggle">
             <span className="shelf-toggle-label">Written on shelf</span>
           </div>
@@ -460,7 +460,7 @@ export default function Orders({ me }) {
               via {o.partnerName}
               {shipByLabel(o) && <> · <span className={shipByOverdue(o) ? 'overdue' : ''}>ship by {shipByLabel(o)}</span></>}
             </div>
-            {!isPartner && o.shelfWritten && (
+            {o.shelfWritten && (
               <div className="shelf-toggle">
                 <span className="shelf-toggle-label">Written on shelf</span>
               </div>
