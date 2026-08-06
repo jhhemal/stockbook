@@ -67,23 +67,6 @@ async function buildLine(body) {
   return { productId: product.id, productName: product.displayName, grades, batteryMin, note, qtyOrdered: qty };
 }
 
-/* Auto-complete: all lines full -> completed; otherwise back to active. Cancelled is manual-only. */
-async function syncStatus(orderId) {
-  const order = await models.Order.findByPk(orderId);
-  if (!order || order.status === 'cancelled') return;
-  const lines = await models.OrderLine.findAll({ where: { orderId } });
-  const allFull = lines.length > 0 && lines.every(l => l.qtyFulfilled >= l.qtyOrdered);
-  if (allFull && order.status !== 'completed') {
-    order.status = 'completed';
-    order.completedAt = new Date();
-    await order.save();
-  } else if (!allFull && order.status === 'completed') {
-    order.status = 'active';
-    order.completedAt = null;
-    await order.save();
-  }
-}
-
 /* GET /api/orders?status=active|done&partner_id=N — rush first, newest first.
  * A partner is always pinned to their own partnerId, ignoring the query
  * param, so they can't page through another partner's orders by editing it. */
@@ -186,7 +169,6 @@ router.post('/:id/lines', async (req, res) => {
   try { line = await buildLine(req.body); }
   catch (err) { return res.status(err.status || 500).json({ detail: err.detail || 'Invalid line' }); }
   await models.OrderLine.create({ ...line, orderId: order.id });
-  await syncStatus(order.id);
   res.status(201).json(orderOut(await loadOrder(order.id)));
 });
 
@@ -213,7 +195,6 @@ router.patch('/:id/lines/:lineId', async (req, res) => {
     if (line.qtyFulfilled > q) line.qtyFulfilled = q;
   }
   await line.save();
-  await syncStatus(line.orderId);
   res.json(orderOut(await loadOrder(req.params.id)));
 });
 
@@ -226,7 +207,6 @@ router.delete('/:id/lines/:lineId', async (req, res) => {
   if (!line) return res.status(404).json({ detail: 'Order line not found' });
   const orderId = line.orderId;
   await line.destroy();
-  await syncStatus(orderId);
   res.json(orderOut(await loadOrder(orderId)));
 });
 
@@ -266,7 +246,6 @@ router.post('/:id/lines/:lineId/fulfill', async (req, res) => {
 
   line.qtyFulfilled = Math.min(line.qtyOrdered, Math.max(0, line.qtyFulfilled + delta));
   await line.save();
-  await syncStatus(line.orderId);
   res.json(orderOut(await loadOrder(req.params.id)));
 });
 
