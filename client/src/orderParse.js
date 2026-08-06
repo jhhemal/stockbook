@@ -1,12 +1,15 @@
 /* Parses pasted WhatsApp-style order notes. Quantity can show up as a
  * prefix ("2-13 pro 128", "15x 15 pro max 256", "X4 14 pro max 256",
  * "20) 13 pro 128", "40 13 pro 128"), a suffix ("14 x2" / "14PM 256 1x" /
- * "13 pro 128 - 30"), a count in parens ("iPhone 13 Pro 256gb (3)"), or a
- * bare trailing number. Lines with no recognizable quantity at all
- * (footers like "Total 16 pcs", "*banner*" text) are skipped rather than
- * turned into a bogus item. A line with no storage size falls back to
- * 128. A Spanish "A y B" ("13 pro Max 128 y 256") offers two sizes at
- * once and becomes two items sharing the same quantity. If the first
+ * "13 pro 128 - 30"), floating mid-line ("16 x5 pink" — everything after
+ * the "xN" becomes the note), a count in parens ("iPhone 13 Pro 256gb
+ * (3)"), or a bare trailing number. Lines with no recognizable quantity at
+ * all (footers like "Total 16 pcs", "*banner*" text) are skipped rather
+ * than turned into a bogus item. A line with no storage size named picks
+ * the smallest size that model is actually carried in (falling back to
+ * 128 if the model isn't in the catalog at all). A Spanish "A y B"
+ * ("13 pro Max 128 y 256") offers two sizes at once and becomes two
+ * items sharing the same quantity. If the first
  * line isn't itself an item, it's checked for a trailing grade (e.g.
  * "A-") that then applies to every line below — client name is never
  * guessed from it, since plenty of messages don't include one. A trailing
@@ -124,6 +127,13 @@ function extractQty(line) {
   m = line.match(/^(.+?)\s*(\d+)\s*[x×]\s*$/i);
   if (m) return { qty: parseInt(m[2], 10), body: m[1], trailingNote: '' };
 
+  // Floating "16 x5 pink" — an "xN" quantity token sitting in the middle of
+  // the line (not at the very start or end), with trailing words after it
+  // becoming the note. The trailing/leading patterns above only catch "xN"
+  // when it's anchored to one end of the line.
+  m = line.match(/^(.+?)\s+[x×](\d+)(?:\s+(.+))?$/i);
+  if (m) return { qty: parseInt(m[2], 10), body: m[1], trailingNote: m[3] || '' };
+
   m = line.match(/^(.+?)\s*\((\d+)\)\s*(.*)$/);
   if (m) return { qty: parseInt(m[2], 10), body: m[1], trailingNote: m[3].trim() };
 
@@ -131,9 +141,16 @@ function extractQty(line) {
   // recognizable because the model right after it starts with its own
   // number (the phone generation). Without this, the fallback below skips
   // the first token on the assumption it's always the generation, and
-  // picks the generation number itself as the quantity instead.
-  m = line.match(/^(\d+)\s+(\d+.*)$/);
-  if (m) return { qty: parseInt(m[1], 10), body: m[2], trailingNote: '' };
+  // picks the generation number itself as the quantity instead. Doesn't
+  // fire when the second number is a recognized storage size ("13 128
+  // 10", "16 128 4") — there the first number is the phone generation and
+  // the real quantity is the trailing one, which the fallback below
+  // already finds correctly; treating "13" as the quantity here would
+  // instead turn "128 10" into a bogus model name.
+  m = line.match(/^(\d+)\s+(\d+)(.*)$/);
+  if (m && !STORAGE_SIZES.has(parseInt(m[2], 10))) {
+    return { qty: parseInt(m[1], 10), body: m[2] + m[3], trailingNote: '' };
+  }
 
   const tokens = line.split(/\s+/).filter(Boolean);
   for (let i = tokens.length - 1; i >= 1; i--) {
@@ -184,9 +201,11 @@ function splitDualStorage(body) {
 }
 
 /* @param grades - [{name}] from the API, used to recognize a header grade suffix.
+ * @param products - [{model,storage}] from the API, used to pick the
+ * smallest carried size for a line that names no storage of its own.
  * Client name is never auto-filled — messages don't always include one, and
  * guessing wrong is worse than leaving it blank for the user to type. */
-export function parseOrderText(text, grades) {
+export function parseOrderText(text, grades, products = []) {
   const rawLines = String(text || '').split('\n').map(l => stripEmoji(l).trim()).filter(Boolean);
   if (!rawLines.length) return { clientName: '', gradeName: '', batteryMin: null, items: [] };
 
@@ -274,7 +293,7 @@ export function parseOrderText(text, grades) {
       const { rest, gradeCode, looseCode, batteryPct } = extractCondition(rest0, gradeSet);
       if (!rest.length) continue;
       const model = titleCase(rest.join(' ')).replace(/\bPm\b/g, 'PM');
-      raw.push({ model, storage: storage || DEFAULT_STORAGE, qty, note: lineNote, gradeCode, looseCode, batteryPct });
+      raw.push({ model, storage: storage || smallestStorageFor(model, products) || DEFAULT_STORAGE, qty, note: lineNote, gradeCode, looseCode, batteryPct });
     }
   }
 
@@ -311,15 +330,32 @@ export function parseOrderText(text, grades) {
 
 /* Best-effort match against existing products, tolerant of the "Pro Max" vs
  * "PM" abbreviation this shop's catalog uses. */
+function normModel(model) {
+  return String(model || '').toLowerCase().replace(/\bpro max\b/g, 'pm').replace(/\s+/g, ' ').trim();
+}
 function normKey(model, storage) {
-  const m = String(model || '').toLowerCase().replace(/\bpro max\b/g, 'pm').replace(/\s+/g, ' ').trim();
   const s = String(storage || '').replace(/[^0-9]/g, '');
-  return m + '|' + s;
+  return normModel(model) + '|' + s;
 }
 
 export function matchProduct(products, model, storage) {
   const key = normKey(model, storage);
   return products.find(p => normKey(p.model, p.storage) === key) || null;
+}
+
+/* A line with no storage size named at all (e.g. "16 x5 pink") picks the
+ * smallest size this model is actually carried in, rather than a hardcoded
+ * guess — closer to what's really in stock. Falls back to DEFAULT_STORAGE
+ * when the model isn't in the catalog yet (nothing to compare against). */
+function smallestStorageFor(model, products) {
+  const key = normModel(model);
+  let min = null;
+  for (const p of products) {
+    if (normModel(p.model) !== key) continue;
+    const n = parseInt(p.storage, 10);
+    if (!isNaN(n) && (min == null || n < min)) min = n;
+  }
+  return min != null ? String(min) : '';
 }
 
 /* Sort key for model+storage that expands "PM" (this shop's Pro Max
