@@ -239,8 +239,15 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
     catch (err) { toast(err.message); setBusy(false); }
   };
 
+  // Wrapping the form lets Enter, in any single-line field, submit it like
+  // a native form — Select already preventDefault()s the Enter it consumes
+  // to pick an option, which also suppresses the browser's implicit-submit
+  // for that keypress, so the two don't fight.
+  const handleSubmit = e => { e.preventDefault(); save(); };
+
   return (
     <Modal title={isNew ? 'New order' : `Edit ${order.clientName}`} onClose={requestClose}>
+      <form onSubmit={handleSubmit}>
       {isNew && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -368,17 +375,18 @@ export default function OrderModal({ order, me, partners, products, grades, onCl
 
       {!isNew && (
         <div className="order-status-actions">
-          {order.status !== 'completed' && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('completed')}>Mark completed</button>}
-          {order.status === 'active' && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('cancelled')}>Cancel order</button>}
-          {order.status !== 'active' && <button className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('active')}>Reopen</button>}
-          {me?.role === 'admin' && <button className="btn btn-danger btn-sm" disabled={busy} onClick={remove}>Delete</button>}
+          {order.status !== 'completed' && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('completed')}>Mark completed</button>}
+          {order.status === 'active' && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('cancelled')}>Cancel order</button>}
+          {order.status !== 'active' && <button type="button" className="btn btn-ghost btn-sm" disabled={busy} onClick={() => setStatus('active')}>Reopen</button>}
+          {me?.role === 'admin' && <button type="button" className="btn btn-danger btn-sm" disabled={busy} onClick={remove}>Delete</button>}
         </div>
       )}
 
       <div className="modal-actions">
-        <button className="btn btn-ghost" onClick={requestClose}>Cancel</button>
-        <button className="btn btn-primary" disabled={busy} onClick={save}>{isNew ? 'Create order' : 'Save'}</button>
+        <button type="button" className="btn btn-ghost" onClick={requestClose}>Cancel</button>
+        <button type="submit" className="btn btn-primary" disabled={busy}>{isNew ? 'Create order' : 'Save'}</button>
       </div>
+      </form>
     </Modal>
   );
 }
