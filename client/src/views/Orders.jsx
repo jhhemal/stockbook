@@ -365,7 +365,12 @@ export default function Orders({ me }) {
       });
       const blob = await (await fetch(dataUrl)).blob();
       const file = new File([blob], `${o.clientName.replace(/\s+/g, '_') || 'order'}.png`, { type: 'image/png' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      // The share sheet only actually helps on a touch device (share
+      // straight to WhatsApp/etc.) — on a mouse-driven desktop it pops up
+      // Windows' own share dialog, whose targets can't save the file or
+      // don't have a sensible destination, so skip straight to a download.
+      const isTouchPrimary = window.matchMedia?.('(pointer: coarse)').matches;
+      if (isTouchPrimary && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: o.clientName });
         return;
       }
